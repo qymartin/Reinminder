@@ -1,0 +1,28 @@
+# Reinminder — notes for Claude
+
+Personal Android reminder app (Kotlin, Jetpack Compose, Material 3). The owner talks in Chinese; reply in Chinese.
+Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminder-设计决策.md`); the UI follows the
+"Reinminder 界面" design canvas, which reuses the CrossSync palette. Same build/release setup as qymartin/CrossSync.
+
+## Rules
+- Privacy: never add the INTERNET permission or any network/analytics/crash-reporting library. The manifest removes
+  INTERNET explicitly. Cloud backup and device transfer are excluded (`res/xml/data_extraction_rules.xml`).
+- Never commit personal data (exported backups, screenshots with real events). The repo is public.
+- Languages: Chinese is the default (`res/values`), English in `res/values-en`. Every new string goes in both.
+  Value-dependent phrases (dates, reminder labels) live in `logic/Formats.kt` (`Fmt`). The language is the app's own
+  setting (`Prefs.lang`), applied with `Lang.wrap` in activities and receivers — not the phone's language.
+- Every change to events goes through `alarm/Repo`, which reschedules alarms.
+
+## Layout
+- `data/` model, JSON codec, file store (`events.json` in private storage), prefs, language
+- `logic/` pure Kotlin, unit-tested: repeat rules (`EventLogic.kt`), quick-add parser (`QuickParser.kt`), formats
+- `backup/` export/import file, optional password encryption
+- `alarm/` exact alarms, notifications (done / snooze actions), boot/update/time-change receivers
+- `ui/` Compose screens: Today, Schedule, QuickAdd sheet, Detail, Edit, Settings, AlarmActivity
+
+## Build and release
+- Every push to `main` runs unit tests, builds a signed APK in GitHub Actions and publishes Release `v<VERSION>.<run_number>`. The owner installs and updates through Obtainium.
+- Versioning: `VERSION` holds the feature version (`1.0`, `1.1`, ...). Bump it when a release adds features; the last number is the CI run number (also the versionCode).
+- Read CI results from the `ci-logs` branch: `git fetch origin ci-logs && git show FETCH_HEAD:ci-status.txt` (and `build.log`).
+- Never print the signing password (no `set -x` in the signing step). Keystore: `signing/release.p12`, secret `SIGNING_PASSWORD`.
+- Commits that only change docs: put `[skip ci]` in the message.

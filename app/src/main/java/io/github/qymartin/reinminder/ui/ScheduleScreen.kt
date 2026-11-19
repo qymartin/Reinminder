@@ -1,0 +1,259 @@
+package io.github.qymartin.reinminder.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.qymartin.reinminder.R
+import io.github.qymartin.reinminder.data.Category
+import io.github.qymartin.reinminder.data.Event
+import io.github.qymartin.reinminder.logic.Fmt
+import io.github.qymartin.reinminder.logic.isOverdue
+import io.github.qymartin.reinminder.logic.occurrences
+import io.github.qymartin.reinminder.logic.shownDate
+import io.github.qymartin.reinminder.logic.shownTime
+import java.time.LocalDate
+import java.time.YearMonth
+
+private data class Occ(val event: Event, val date: LocalDate)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
+    val en = LocalEn.current
+    val now = LocalNow.current
+    val today = now.toLocalDate()
+    var mode by rememberSaveable { mutableIntStateOf(1) } // 0 = list, 1 = month
+    var monthIndex by rememberSaveable { mutableIntStateOf(0) } // months from the current one
+    var selectedDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
+
+    val ym = YearMonth.from(today).plusMonths(monthIndex.toLong())
+    val monthStart = ym.atDay(1)
+    val monthEnd = ym.atEndOfMonth()
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        if (mode == 1) {
+            val occ = occurrencesIn(events, monthStart, monthEnd)
+            val byDay = occ.groupBy { it.date }
+            val repeating = occ.map { it.event }.distinctBy { it.id }.count { it.repeat != io.github.qymartin.reinminder.data.Repeat.NONE }
+            item {
+                val sub = if (en) "${occ.size} this month · $repeating repeating" else "本月 ${occ.size} 项 · $repeating 项重复"
+                ScreenTitle(stringResource(R.string.tab_schedule), sub)
+            }
+            item { Toolbar(mode, { mode = it }) { MonthNav(ym, en, { monthIndex-- }, { monthIndex++ }, { monthIndex = 0; selectedDay = today.toEpochDay() }) } }
+            item {
+                SectionCard(padding = 8, spacing = 2) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Fmt.weekHeaders(en).forEach {
+                            Text(it, fontSize = 12.sp, color = Text3, textAlign = TextAlign.Center, modifier = Modifier.weight(1f).padding(vertical = 4.dp))
+                        }
+                    }
+                    val lead = monthStart.dayOfWeek.value - 1
+                    val first = monthStart.minusDays(lead.toLong())
+                    for (week in 0 until 6) {
+                        Row(Modifier.fillMaxWidth()) {
+                            for (dow in 0 until 7) {
+                                val d = first.plusDays((week * 7 + dow).toLong())
+                                val inMonth = d.month == ym.month
+                                val items = if (inMonth) byDay[d].orEmpty() else emptyList()
+                                DayCell(
+                                    d, inMonth, isToday = d == today, isSelected = inMonth && d.toEpochDay() == selectedDay,
+                                    dot = when {
+                                        items.isEmpty() -> Color.Transparent
+                                        items.any { it.event.isOverdue(now) && it.date == it.event.shownDate() } -> Amber
+                                        else -> Color(0xFF7AB8FF)
+                                    },
+                                    onClick = { if (inMonth) selectedDay = d.toEpochDay() },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            val sel = LocalDate.ofEpochDay(selectedDay)
+            val list = if (sel.month == ym.month && sel.year == ym.year) byDay[sel].orEmpty() else emptyList()
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val title = Fmt.date(sel, en, today) + if (sel == today) (if (en) " · Today" else " · 今天") else ""
+                    Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Text1, modifier = Modifier.weight(1f))
+                    if (list.isNotEmpty()) Text(if (en) "${list.size}" else "${list.size} 项", fontSize = 12.sp, color = Text3)
+                }
+            }
+            item { OccList(list, en, today, onOpen, emptyText = stringResource(R.string.nothing_on_day)) }
+        } else {
+            val end = today.plusDays(60)
+            val occ = occurrencesIn(events, today, end)
+            val overdue = events.filter { it.isOverdue(now) }
+            item {
+                val sub = if (en) "Next 60 days · ${occ.size}" else "未来 60 天 · ${occ.size} 项"
+                ScreenTitle(stringResource(R.string.tab_schedule), sub)
+            }
+            item { Toolbar(mode, { mode = it }) {} }
+            if (overdue.isNotEmpty()) {
+                item { DayHeader(stringResource(R.string.overdue), Amber) }
+                item { OccList(overdue.map { Occ(it, it.shownDate()) }, en, today, onOpen, emptyText = "") }
+            }
+            val groups = occ.groupBy { it.date }.toSortedMap(compareBy<LocalDate> { it.toEpochDay() })
+            if (groups.isEmpty()) item {
+                Text(stringResource(R.string.nothing_upcoming), color = Text3, fontSize = 14.sp, modifier = Modifier.padding(4.dp))
+            }
+            groups.forEach { (d, items) ->
+                item { DayHeader(Fmt.day(d, today, en), Text1) }
+                item { OccList(items, en, today, onOpen, emptyText = "") }
+            }
+        }
+    }
+}
+
+private fun occurrencesIn(events: List<Event>, from: LocalDate, to: LocalDate): List<Occ> =
+    events.flatMap { e -> e.occurrences(from, to).map { Occ(e, it) } }
+        .sortedWith(compareBy<Occ>({ it.date.toEpochDay() }, { timeOf(it) != null }, { timeOf(it) }, { it.event.id }))
+
+private fun timeOf(o: Occ) = if (o.date == o.event.shownDate()) o.event.shownTime() else o.event.time
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Toolbar(mode: Int, onMode: (Int) -> Unit, trailing: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SingleChoiceSegmentedButtonRow(Modifier.width(180.dp)) {
+            val labels = listOf(stringResource(R.string.view_list), stringResource(R.string.view_month))
+            labels.forEachIndexed { i, label ->
+                SegmentedButton(
+                    selected = mode == i,
+                    onClick = { onMode(i) },
+                    shape = SegmentedButtonDefaults.itemShape(index = i, count = labels.size),
+                    icon = {},
+                ) { Text(label) }
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        trailing()
+    }
+}
+
+@Composable
+private fun MonthNav(ym: YearMonth, en: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onPrev) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.prev_month), tint = Accent)
+        }
+        Text(
+            Fmt.month(ym, en), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Text1,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onToday).padding(horizontal = 4.dp, vertical = 8.dp),
+        )
+        IconButton(onClick = onNext) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_month), tint = Accent)
+        }
+    }
+}
+
+@Composable
+private fun DayCell(
+    d: LocalDate, inMonth: Boolean, isToday: Boolean, isSelected: Boolean, dot: Color,
+    onClick: () -> Unit, modifier: Modifier,
+) {
+    Column(
+        modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(10.dp)).clickable(enabled = inMonth, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        var m = Modifier.size(34.dp).clip(CircleShape)
+        if (isSelected) m = m.background(Accent) else if (isToday) m = m.border(1.5.dp, Accent, CircleShape)
+        Box(m, contentAlignment = Alignment.Center) {
+            Text(
+                "${d.dayOfMonth}", fontSize = 15.sp,
+                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    isSelected -> OnAccent
+                    inMonth -> Text1
+                    else -> Color(0xFF5A6070)
+                },
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Box(Modifier.size(5.dp).clip(CircleShape).background(dot))
+    }
+}
+
+@Composable
+private fun DayHeader(text: String, color: Color) {
+    Text(text, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(start = 2.dp, top = 2.dp))
+}
+
+@Composable
+private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Long) -> Unit, emptyText: String) {
+    SectionCard(padding = 4, spacing = 0) {
+        if (list.isEmpty() && emptyText.isNotEmpty()) {
+            Text(emptyText, fontSize = 14.sp, color = Text3, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp))
+        }
+        list.forEachIndexed { i, o ->
+            if (i > 0) RowDivider()
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(o.event.id) }
+                    .heightIn(min = 58.dp).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.width(4.dp).height(30.dp).clip(RoundedCornerShape(2.dp)).background(barColor(o, today)))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(o.event.title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Text1)
+                    val meta = Fmt.meta(o.event, en)
+                    if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(Fmt.timeOrAllDay(timeOf(o), en), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFFC9CDD6))
+            }
+        }
+    }
+}
+
+private fun barColor(o: Occ, today: LocalDate): Color = when {
+    o.date.isBefore(today) -> Amber
+    o.event.category == Category.ANNIVERSARY -> Purple
+    else -> Accent
+}

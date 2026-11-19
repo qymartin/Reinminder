@@ -1,0 +1,101 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      # The signing key is created once, protected by the SIGNING_PASSWORD secret,
+      # and committed so every later build is signed with the same key.
+      - name: Signing key
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          # Never use `set -x` here: it would print the password.
+          exec > >(tee -a signing.log) 2>&1
+          SIGNING_PASSWORD="$(printf '%s' "$SIGNING_PASSWORD" | tr -d '\r\n')"
+          if [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::warning::Secret SIGNING_PASSWORD is not set: building unsigned, no release."
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "SIGNED=true" >> "$GITHUB_ENV"
+          if [ ! -f signing/release.p12 ]; then
+            mkdir -p signing
+            keytool -genkeypair -storetype PKCS12 -keystore signing/release.p12 -alias reinminder \
+              -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Reinminder" \
+              -storepass "$SIGNING_PASSWORD" -keypass "$SIGNING_PASSWORD"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add signing/release.p12
+            git commit -m "Add release signing key [skip ci]"
+            git push
+          fi
+
+      # Optional: drop a square PNG at branding/icon.png to replace the default icon.
+      - name: Custom icon
+        if: hashFiles('branding/icon.png') != ''
+        run: |
+          sudo apt-get install -y -qq imagemagick > /dev/null
+          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            n=${d%%:*}; s=${d##*:}
+            mkdir -p app/src/main/res/mipmap-$n
+            convert branding/icon.png -resize "${s}x${s}^" -gravity center -extent "${s}x${s}" \
+              app/src/main/res/mipmap-$n/ic_launcher.png
+          done
+          rm -f app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
+      # Unit tests (quick-add parsing, repeat rules, backup encryption) must pass before a release.
+      - name: Build
+        env:
+          SIGNING_STORE_FILE: ${{ github.workspace }}/signing/release.p12
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease 2>&1 | tee build.log
+
+      - name: Release
+        if: env.SIGNED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          V="$(tr -d '[:space:]' < VERSION).${{ github.run_number }}"
+          cp app/build/outputs/apk/release/app-release.apk "Reinminder-$V.apk"
+          gh release create "v$V" "Reinminder-$V.apk" --title "Reinminder $V" --notes "${NOTES:-manual build}"
+
+      # Publishes the build log to the ci-logs branch so it can be read with plain git.
+      - name: Publish log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/ci && cd /tmp/ci
+          cat "$GITHUB_WORKSPACE/signing.log" > build.log 2>/dev/null || true
+          if [ -f "$GITHUB_WORKSPACE/build.log" ]; then tail -c 300000 "$GITHUB_WORKSPACE/build.log" >> build.log; else echo "no build log" >> build.log; fi
+          echo "status=${{ job.status }} signed=${SIGNED:-?} run=${{ github.run_number }} sha=${{ github.sha }}" > ci-status.txt
+          git init -q && git add . \
+            && git -c user.name=ci -c user.email=ci@localhost commit -qm "CI log for run ${{ github.run_number }}" \
+            && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:ci-logs

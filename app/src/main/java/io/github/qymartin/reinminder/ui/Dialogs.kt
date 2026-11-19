@@ -1,0 +1,149 @@
+package io.github.qymartin.reinminder.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.qymartin.reinminder.R
+import io.github.qymartin.reinminder.data.MAX_REMINDERS
+import io.github.qymartin.reinminder.logic.Fmt
+
+object Presets {
+    /** Minutes before a timed event. */
+    val timed = listOf(0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080)
+    /** Minutes before 09:00 on the day of an all-day event: 当天 09:00, 当天 08:00, 前一天 20:00, 前一天 09:00, 2 天前, 7 天前. */
+    val allDay = listOf(0, 60, 780, 1440, 2880, 10080)
+    val timedQuick = listOf(0, 15, 60, 1440)
+    val allDayQuick = listOf(0, 780, 1440, 10080)
+    val snooze = listOf(5, 10, 15, 30, 60)
+}
+
+/** Pick any number of reminders. */
+@Composable
+fun ReminderDialog(allDay: Boolean, initial: List<Int>, onDismiss: () -> Unit, onConfirm: (List<Int>) -> Unit) {
+    val en = LocalEn.current
+    var chosen by remember { mutableStateOf(initial.toSet()) }
+    val options = ((if (allDay) Presets.allDay else Presets.timed) + initial).distinct().sorted()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = { Text(stringResource(R.string.reminders)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { m ->
+                    val on = m in chosen
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
+                            chosen = if (on) chosen - m else if (chosen.size < MAX_REMINDERS) chosen + m else chosen
+                        },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = on, onCheckedChange = null)
+                        Text(Fmt.reminder(m, allDay, en), fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(chosen.toList().sortedDescending()) }) { Text(stringResource(R.string.ok)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Pick one value. */
+@Composable
+fun <T> ChoiceDialog(title: String, options: List<Pair<String, T>>, selected: T, onDismiss: () -> Unit, onPick: (T) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { (label, value) ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onPick(value) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = value == selected, onClick = null)
+                        Text(label, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = { Text(title) },
+        text = { Text(text) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Password for an encrypted backup. [twice] asks for it again when exporting. */
+@Composable
+fun PasswordDialog(title: String, twice: Boolean, error: String?, onDismiss: () -> Unit, onDone: (CharArray) -> Unit) {
+    var pw by remember { mutableStateOf("") }
+    var pw2 by remember { mutableStateOf("") }
+    val tooShort = pw.length < 4
+    val mismatch = twice && pw != pw2
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = pw, onValueChange = { pw = it }, singleLine = true,
+                    label = { Text(stringResource(R.string.password)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+                if (twice) {
+                    OutlinedTextField(
+                        value = pw2, onValueChange = { pw2 = it }, singleLine = true,
+                        label = { Text(stringResource(R.string.password_again)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+                    Text(stringResource(R.string.password_warning), fontSize = 12.sp, color = Text3)
+                }
+                if (error != null) Text(error, fontSize = 13.sp, color = Amber)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDone(pw.toCharArray()) }, enabled = !tooShort && !mismatch) { Text(stringResource(R.string.ok)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
