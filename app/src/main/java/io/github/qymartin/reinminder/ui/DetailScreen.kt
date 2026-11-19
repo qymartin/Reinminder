@@ -71,7 +71,7 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
             Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(e.title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Text1)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    e.category?.let { Chip(Fmt.category(it, en)) }
+                    LocalTopics.current.nameOf(e.topic)?.let { Chip(it) }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
                     if (doneNow) Chip(stringResource(R.string.done_label))
                     if (e.isOverdue(now)) Chip(stringResource(R.string.overdue), color = Amber, background = AmberBg, border = AmberBorder)

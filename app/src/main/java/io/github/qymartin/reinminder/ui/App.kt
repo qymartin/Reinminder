@@ -43,11 +43,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.qymartin.reinminder.R
-import io.github.qymartin.reinminder.alarm.Repo
 import io.github.qymartin.reinminder.data.Codec
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Prefs
+import io.github.qymartin.reinminder.data.TopicStore
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import java.time.LocalDateTime
@@ -60,6 +60,8 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
     val ctx = LocalContext.current
     val store = remember { EventStore.get(ctx) }
     val events by store.events.collectAsState()
+    val topics by remember { TopicStore.get(ctx) }.topics.collectAsState()
+    val topicNames = topics.associate { it.id to it.name }
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -74,7 +76,6 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
     // The event being edited, kept as JSON so it survives rotation and unfolding.
     var editJson by rememberSaveable { mutableStateOf<String?>(null) }
     var editIsNew by rememberSaveable { mutableStateOf(false) }
-    var quickAdd by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(openRequest) {
         if (openRequest != null) {
@@ -102,7 +103,7 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
         editIsNew = isNew
     }
 
-    CompositionLocalProvider(LocalNow provides now) {
+    CompositionLocalProvider(LocalNow provides now, LocalTopics provides topicNames) {
         Box(Modifier.fillMaxSize().background(Bg)) {
             Scaffold(
                 containerColor = Bg,
@@ -133,7 +134,7 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
                 floatingActionButton = {
                     if (tab != 2) {
                         FloatingActionButton(
-                            onClick = { quickAdd = true },
+                            onClick = { startEdit(newEvent(store.newId(), LocalDateTime.now()), true) },
                             containerColor = Accent,
                             contentColor = OnAccent,
                             shape = RoundedCornerShape(16.dp),
@@ -190,20 +191,16 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
             }
         }
 
-        if (quickAdd) {
-            QuickAddSheet(
-                onDismiss = { quickAdd = false },
-                onSave = { e ->
-                    Repo.save(ctx, e)
-                    quickAdd = false
-                },
-                onMore = { e ->
-                    quickAdd = false
-                    startEdit(e, true)
-                },
-            )
-        }
     }
+}
+
+/** A blank event for the "new" form: the next full hour, reminded 1 hour before. */
+private fun newEvent(id: Long, now: LocalDateTime): Event {
+    val at = now.plusHours(1).withMinute(0).withSecond(0).withNano(0)
+    return Event(
+        id = id, title = "", anchor = at.toLocalDate(), date = at.toLocalDate(), time = at.toLocalTime(),
+        reminders = listOf(60), createdAt = System.currentTimeMillis(),
+    )
 }
 
 @Composable

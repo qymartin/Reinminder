@@ -3,6 +3,8 @@ package io.github.qymartin.reinminder.alarm
 import android.content.Context
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.EventStore
+import io.github.qymartin.reinminder.data.Topic
+import io.github.qymartin.reinminder.data.TopicStore
 import io.github.qymartin.reinminder.logic.completed
 import io.github.qymartin.reinminder.logic.postponed
 import io.github.qymartin.reinminder.logic.postponedToTomorrow
@@ -50,10 +52,19 @@ object Repo {
         after(c, id)
     }
 
-    fun replaceAll(c: Context, list: List<Event>) {
+    /** Restore a backup. [topics] is null for 1.0 backups: the current topics are kept. */
+    fun replaceAll(c: Context, list: List<Event>, topics: List<Topic>?) {
         val old = store(c).all()
+        if (topics != null) TopicStore.get(c).replaceAll(topics)
         store(c).replaceAll(list)
         old.forEach { Alarms.cancelSnooze(c, it.id); Notifier.cancel(c, it.id) }
         Alarms.rescheduleAll(c)
+    }
+
+    /** Delete a topic; its events stay, without a topic. */
+    fun deleteTopic(c: Context, id: String) {
+        TopicStore.get(c).remove(id)
+        val events = store(c)
+        events.replaceAll(events.all().map { if (it.topic == id) it.copy(topic = null) else it })
     }
 }

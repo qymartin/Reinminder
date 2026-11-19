@@ -14,11 +14,12 @@ Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminde
 - Every change to events goes through `alarm/Repo`, which reschedules alarms.
 
 ## Layout
-- `data/` model, JSON codec, file store (`events.json` in private storage), prefs, language
+- `data/` model, JSON codec, file stores (`events.json`, `topics.json` in private storage), prefs, language.
+  Topics (主题) are user-defined; `Event.topic` holds a topic id. 1.0's fixed category keys are the ids of the seeded topics.
 - `logic/` pure Kotlin, unit-tested: repeat rules (`EventLogic.kt`), quick-add parser (`QuickParser.kt`), formats
 - `backup/` export/import file, optional password encryption
 - `alarm/` exact alarms, notifications (done / snooze actions), boot/update/time-change receivers
-- `ui/` Compose screens: Today, Schedule, QuickAdd sheet, Detail, Edit, Settings, AlarmActivity
+- `ui/` Compose screens: Today, Schedule, Detail, Edit (one page for new and edit), Settings, topic picker/manager, AlarmActivity
 
 ## Build and release
 - Every push to `main` runs unit tests, builds a signed APK in GitHub Actions and publishes Release `v<VERSION>.<run_number>`. The owner installs and updates through Obtainium.

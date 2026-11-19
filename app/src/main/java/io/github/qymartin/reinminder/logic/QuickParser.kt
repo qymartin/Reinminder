@@ -1,6 +1,5 @@
 package io.github.qymartin.reinminder.logic
 
-import io.github.qymartin.reinminder.data.Category
 import io.github.qymartin.reinminder.data.Repeat
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -12,7 +11,8 @@ data class Parsed(
     val date: LocalDate? = null,
     val time: LocalTime? = null,
     val repeat: Repeat? = null,
-    val category: Category? = null,
+    /** Text of the first #tag, to be matched to a topic by name. */
+    val topic: String? = null,
     val important: Boolean = false,
 )
 
@@ -70,7 +70,7 @@ object QuickParser {
     fun parse(input: String, now: LocalDateTime): Parsed {
         val today = now.toLocalDate()
         var text = " $input "
-        var category: Category? = null
+        var topic: String? = null
         var important = false
         var repeat: Repeat? = null
         var date: LocalDate? = null
@@ -82,13 +82,12 @@ object QuickParser {
             text = text.replaceRange(m.range, " ")
         }
 
-        // Tags: #category, #重要 / #important
+        // Tags: #重要 / #important mark it important; the first other tag names a topic.
         while (true) {
-            val m = tagRe.findAll(text).firstOrNull { tagMeaning(it.groupValues[1]) != null } ?: break
-            when (val meaning = tagMeaning(m.groupValues[1])) {
-                is Category -> if (category == null) category = meaning
-                IMPORTANT -> important = true
-            }
+            val m = tagRe.find(text) ?: break
+            val tag = m.groupValues[1].trimEnd(',', '，', '.', '。')
+            if (tag.lowercase() in setOf("重要", "important")) important = true
+            else if (topic == null && tag.isNotEmpty()) topic = tag
             cut(m)
         }
         bangRe.find(text)?.let { important = true; cut(it) }
@@ -243,24 +242,8 @@ object QuickParser {
         }
 
         val title = cleanTitle(text)
-        if (anniversaryWords.containsMatchIn(title)) {
-            if (category == null) category = Category.ANNIVERSARY
-            if (repeat == null) repeat = Repeat.YEARLY
-        }
-        return Parsed(title, date, time, repeat, category, important)
-    }
-
-    private object IMPORTANT
-
-    private fun tagMeaning(tag: String): Any? = when (tag.lowercase().trimEnd(',', '，', '.', '。')) {
-        "工作", "work" -> Category.WORK
-        "生活", "life" -> Category.LIFE
-        "健康", "health" -> Category.HEALTH
-        "账单", "bills", "bill" -> Category.BILLS
-        "纪念日", "生日", "anniversary", "birthday" -> Category.ANNIVERSARY
-        "个人", "personal" -> Category.PERSONAL
-        "重要", "important" -> IMPORTANT
-        else -> null
+        if (repeat == null && anniversaryWords.containsMatchIn(title)) repeat = Repeat.YEARLY
+        return Parsed(title, date, time, repeat, topic, important)
     }
 
     private fun adjustHour(h: Int, period: String, ampm: String, evening: Boolean, morning: Boolean, guess: Boolean): Int {

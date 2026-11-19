@@ -19,6 +19,7 @@ import io.github.qymartin.reinminder.R
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.Lang
 import io.github.qymartin.reinminder.data.Prefs
+import io.github.qymartin.reinminder.data.TopicStore
 import io.github.qymartin.reinminder.logic.Fmt
 import io.github.qymartin.reinminder.ui.AlarmActivity
 import io.github.qymartin.reinminder.ui.MainActivity
@@ -80,7 +81,7 @@ object Notifier {
         val nid = notificationId(e.id)
         val text = buildList {
             add(Fmt.moment(e, LocalDate.now(), en))
-            e.category?.let { add(Fmt.category(it, en)) }
+            TopicStore.get(context).name(e.topic)?.let { add(it) }
         }.joinToString(" · ")
 
         val open = PendingIntent.getActivity(

@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -29,48 +28,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.qymartin.reinminder.R
-import io.github.qymartin.reinminder.data.MAX_REMINDERS
-import io.github.qymartin.reinminder.logic.Fmt
 
 object Presets {
-    /** Minutes before a timed event. */
-    val timed = listOf(0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080)
-    /** Minutes before 09:00 on the day of an all-day event: 当天 09:00, 当天 08:00, 前一天 20:00, 前一天 09:00, 2 天前, 7 天前. */
-    val allDay = listOf(0, 60, 780, 1440, 2880, 10080)
-    val timedQuick = listOf(0, 15, 60, 1440)
-    val allDayQuick = listOf(0, 780, 1440, 10080)
     val snooze = listOf(5, 10, 15, 30, 60)
-}
-
-/** Pick any number of reminders. */
-@Composable
-fun ReminderDialog(allDay: Boolean, initial: List<Int>, onDismiss: () -> Unit, onConfirm: (List<Int>) -> Unit) {
-    val en = LocalEn.current
-    var chosen by remember { mutableStateOf(initial.toSet()) }
-    val options = ((if (allDay) Presets.allDay else Presets.timed) + initial).distinct().sorted()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CardBg,
-        title = { Text(stringResource(R.string.reminders)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                options.forEach { m ->
-                    val on = m in chosen
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
-                            chosen = if (on) chosen - m else if (chosen.size < MAX_REMINDERS) chosen + m else chosen
-                        },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = on, onCheckedChange = null)
-                        Text(Fmt.reminder(m, allDay, en), fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(chosen.toList().sortedDescending()) }) { Text(stringResource(R.string.ok)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 /** Pick one value. */

@@ -65,3 +65,8 @@ val LocalEn = compositionLocalOf { false }
 
 /** "Now", refreshed every 30 seconds so overdue states update. */
 val LocalNow = compositionLocalOf { LocalDateTime.now() }
+
+/** Topic id -> name, for rows and details. */
+val LocalTopics = compositionLocalOf { emptyMap<String, String>() }
+
+fun Map<String, String>.nameOf(id: String?): String? = id?.let { this[it] }

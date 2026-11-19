@@ -30,6 +30,10 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,7 +57,7 @@ import io.github.qymartin.reinminder.alarm.Repo
 import io.github.qymartin.reinminder.backup.BadBackupException
 import io.github.qymartin.reinminder.backup.Backup
 import io.github.qymartin.reinminder.backup.WrongPasswordException
-import io.github.qymartin.reinminder.data.Category
+import io.github.qymartin.reinminder.data.TopicStore
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Prefs
@@ -78,34 +82,20 @@ fun SettingsScreen(events: List<Event>) {
     val scope = rememberCoroutineScope()
     val pkg = ctx.packageName
 
-    // Re-read permission states whenever the screen comes back from system settings.
-    var resumeTick by remember { mutableIntStateOf(0) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(lifecycle) {
-        val obs = LifecycleEventObserver { _, ev -> if (ev == Lifecycle.Event.ON_RESUME) resumeTick++ }
-        lifecycle.addObserver(obs)
-        onDispose { lifecycle.removeObserver(obs) }
-    }
-    val notifOk = remember(resumeTick) { Notifier.canNotify(ctx) && NotificationManagerCompat.from(ctx).areNotificationsEnabled() }
-    val exactOk = remember(resumeTick) { Alarms.canExact(ctx) }
-    val batteryOk = remember(resumeTick) { ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(pkg) }
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { resumeTick++ }
-
     // Settings that live in prefs, mirrored as state so the screen updates.
-    var timedDefaults by remember { mutableStateOf(prefs.timedDefaults) }
-    var allDayDefaults by remember { mutableStateOf(prefs.allDayDefaults) }
-    var annivDefaults by remember { mutableStateOf(prefs.anniversaryDefaults) }
+    val topics by remember { TopicStore.get(ctx) }.topics.collectAsState()
     var snooze by remember { mutableIntStateOf(prefs.snoozeMinutes) }
     var encrypt by remember { mutableStateOf(prefs.encryptBackup) }
     var lastExport by remember { mutableStateOf(prefs.lastExportAt to prefs.lastExportEncrypted) }
-    var editing by remember { mutableStateOf<String?>(null) } // which default is being edited
+    var editing by remember { mutableStateOf<String?>(null) } // which choice dialog is open
+    var managingTopics by remember { mutableStateOf(false) }
 
     // Backup flow state.
     var exportPassword by remember { mutableStateOf<CharArray?>(null) }
     var askExportPassword by remember { mutableStateOf(false) }
     var importBytes by remember { mutableStateOf<ByteArray?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
-    var pendingImport by remember { mutableStateOf<List<Event>?>(null) }
+    var pendingImport by remember { mutableStateOf<Backup.Contents?>(null) }
     var busy by remember { mutableStateOf(false) }
 
     val msgExported = stringResource(R.string.exported)
@@ -113,7 +103,6 @@ fun SettingsScreen(events: List<Event>) {
     val msgNotBackup = stringResource(R.string.not_a_backup)
     val msgWrongPw = stringResource(R.string.wrong_password)
     val msgImported = stringResource(R.string.imported)
-    val msgNoNotif = stringResource(R.string.notifications_off)
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val pw = exportPassword
@@ -124,7 +113,7 @@ fun SettingsScreen(events: List<Event>) {
             try {
                 val now = System.currentTimeMillis()
                 val bytes = withContext(Dispatchers.Default) {
-                    val json = Backup.toJson(EventStore.get(ctx).all(), now).toByteArray()
+                    val json = Backup.toJson(EventStore.get(ctx).all(), TopicStore.get(ctx).all(), now).toByteArray()
                     if (pw != null) Backup.encrypt(json, pw).also { pw.fill(' ') } else json
                 }
                 withContext(Dispatchers.IO) {
@@ -203,98 +192,27 @@ fun SettingsScreen(events: List<Event>) {
             ScreenTitle(stringResource(R.string.tab_settings), "Reinminder · v$version")
         }
 
-        // Language
+        // General: language and snooze, as plain rows.
         item {
             SectionCard {
-                CardTitle(stringResource(R.string.language_title))
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    val options = listOf("zh" to "中文", "en" to "English")
-                    options.forEachIndexed { i, (code, label) ->
-                        SegmentedButton(
-                            selected = prefs.lang == code,
-                            onClick = {
-                                if (prefs.lang != code) {
-                                    prefs.lang = code
-                                    Notifier.ensureChannels(ctx)
-                                    (ctx as? Activity)?.recreate()
-                                }
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
-                            icon = {},
-                        ) { Text(label) }
-                    }
-                }
-                KeyValueRow(
-                    stringResource(R.string.dates_look_like),
-                    Fmt.date(LocalDate.of(2026, 11, 21), en) + " · " + Fmt.time(java.time.LocalTime.of(15, 0), en),
-                    valueColor = Text1,
-                )
-            }
-        }
-
-        // Privacy
-        item {
-            SectionCard(spacing = 12) {
-                CardTitle(stringResource(R.string.privacy_title))
-                FactRow(stringResource(R.string.privacy_offline), stringResource(R.string.privacy_offline_note), stringResource(R.string.verified))
-                FactRow(stringResource(R.string.privacy_no_cloud), stringResource(R.string.privacy_no_cloud_note), stringResource(R.string.off))
-            }
-        }
-
-        // Reliability
-        item {
-            SectionCard {
-                CardTitle(stringResource(R.string.reliability_title))
-                StatusRow(stringResource(R.string.notifications), notifOk, stringResource(R.string.on), stringResource(R.string.off_needs_fix))
-                StatusRow(stringResource(R.string.exact_alarms), exactOk, stringResource(R.string.allowed), stringResource(R.string.not_allowed))
-                StatusRow(stringResource(R.string.battery_opt), batteryOk, stringResource(R.string.excluded), stringResource(R.string.not_excluded))
-                if (!batteryOk) Text(stringResource(R.string.battery_note), fontSize = 13.sp, color = Text2, lineHeight = 19.sp)
-                if (!notifOk) {
-                    Button(onClick = {
-                        if (Build.VERSION.SDK_INT >= 33 && !Notifier.canNotify(ctx)) {
-                            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            open(ctx, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg))
-                        }
-                    }, modifier = Modifier.fillMaxWidth().height(44.dp)) { Text(stringResource(R.string.turn_on_notifications)) }
-                }
-                if (!exactOk && Build.VERSION.SDK_INT >= 31) {
-                    Button(onClick = {
-                        open(ctx, Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$pkg")))
-                    }, modifier = Modifier.fillMaxWidth().height(44.dp)) { Text(stringResource(R.string.allow_exact)) }
-                }
-                if (!batteryOk) {
-                    Button(onClick = {
-                        @Suppress("BatteryLife")
-                        val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$pkg"))
-                        if (!open(ctx, direct)) open(ctx, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                    }, modifier = Modifier.fillMaxWidth().height(44.dp)) { Text(stringResource(R.string.exclude_battery)) }
-                }
-                OutlinedButton(onClick = { if (!Notifier.test(ctx)) toast(ctx, msgNoNotif) }, modifier = Modifier.fillMaxWidth().height(44.dp)) {
-                    Text(stringResource(R.string.send_test))
-                }
-            }
-        }
-
-        // Default reminders
-        item {
-            SectionCard {
-                CardTitle(stringResource(R.string.defaults_title))
-                KeyValueRow(stringResource(R.string.def_timed), Fmt.reminders(timedDefaults, false, en) ?: stringResource(R.string.none), Accent) { editing = "timed" }
-                KeyValueRow(stringResource(R.string.def_all_day), Fmt.reminders(allDayDefaults, true, en) ?: stringResource(R.string.none), Accent) { editing = "allDay" }
-                KeyValueRow(stringResource(R.string.def_anniversary), Fmt.reminders(annivDefaults, false, en) ?: stringResource(R.string.none), Accent) { editing = "anniv" }
+                KeyValueRow(stringResource(R.string.language_title), if (en) "English" else "中文", Accent) { editing = "lang" }
                 KeyValueRow(stringResource(R.string.snooze), stringResource(R.string.minutes_n, snooze), Accent) { editing = "snooze" }
             }
         }
 
-        // Categories
+        // Topics
         item {
             SectionCard {
-                CardTitle(stringResource(R.string.category))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CardTitle(stringResource(R.string.topics))
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { managingTopics = true }) { Text(stringResource(R.string.manage_topics)) }
+                }
+                if (topics.isEmpty()) Text(stringResource(R.string.no_topics), fontSize = 14.sp, color = Text3)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Category.entries.forEach { c ->
-                        val n = events.count { it.category == c && !it.done }
-                        Chip("${Fmt.category(c, en)} · $n")
+                    topics.forEach { t ->
+                        val n = events.count { it.topic == t.id && !it.done }
+                        Chip("${t.name} · $n")
                     }
                 }
             }
@@ -335,9 +253,20 @@ fun SettingsScreen(events: List<Event>) {
     }
 
     when (editing) {
-        "timed" -> ReminderDialog(false, timedDefaults, { editing = null }) { prefs.timedDefaults = it; timedDefaults = it; editing = null }
-        "allDay" -> ReminderDialog(true, allDayDefaults, { editing = null }) { prefs.allDayDefaults = it; allDayDefaults = it; editing = null }
-        "anniv" -> ReminderDialog(false, annivDefaults, { editing = null }) { prefs.anniversaryDefaults = it; annivDefaults = it; editing = null }
+        "lang" -> ChoiceDialog(
+            stringResource(R.string.language_title),
+            listOf("中文" to "zh", "English" to "en"),
+            prefs.lang,
+            onDismiss = { editing = null },
+            onPick = { code ->
+                editing = null
+                if (prefs.lang != code) {
+                    prefs.lang = code
+                    Notifier.ensureChannels(ctx)
+                    (ctx as? Activity)?.recreate()
+                }
+            },
+        )
         "snooze" -> ChoiceDialog(
             stringResource(R.string.snooze),
             Presets.snooze.map { stringResource(R.string.minutes_n, it) to it },
@@ -346,6 +275,8 @@ fun SettingsScreen(events: List<Event>) {
             onPick = { prefs.snoozeMinutes = it; snooze = it; editing = null },
         )
     }
+
+    if (managingTopics) TopicManager(topics, onDismiss = { managingTopics = false })
 
     if (askExportPassword) {
         PasswordDialog(stringResource(R.string.set_backup_password), twice = true, error = null, onDismiss = { askExportPassword = false }) { pw ->
@@ -366,37 +297,14 @@ fun SettingsScreen(events: List<Event>) {
     if (incoming != null) {
         ConfirmDialog(
             title = stringResource(R.string.import_title),
-            text = stringResource(R.string.import_text, events.size, incoming.size),
+            text = stringResource(R.string.import_text, events.size, incoming.events.size),
             confirm = stringResource(R.string.import_),
             onDismiss = { pendingImport = null },
             onConfirm = {
                 pendingImport = null
-                Repo.replaceAll(ctx, incoming)
+                Repo.replaceAll(ctx, incoming.events, incoming.topics)
                 toast(ctx, msgImported)
             },
         )
     }
-}
-
-@Composable
-private fun FactRow(title: String, note: String, value: String) {
-    Row(Modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontSize = 15.sp, color = Text1)
-            Text(note, fontSize = 12.sp, color = Text3, lineHeight = 17.sp)
-        }
-        Text("$value ✓", fontSize = 15.sp, color = Text2, modifier = Modifier.padding(start = 12.dp))
-    }
-}
-
-@Composable
-private fun StatusRow(title: String, ok: Boolean, okText: String, badText: String) {
-    KeyValueRow(title, if (ok) "$okText ✓" else badText, valueColor = if (ok) Text2 else Amber)
-}
-
-private fun open(ctx: Context, intent: Intent): Boolean = try {
-    ctx.startActivity(intent)
-    true
-} catch (e: Exception) {
-    false
 }

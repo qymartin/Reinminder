@@ -1,6 +1,5 @@
 package io.github.qymartin.reinminder.logic
 
-import io.github.qymartin.reinminder.data.Category
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.Repeat
 import java.time.LocalDate
@@ -62,15 +61,6 @@ object Fmt {
         return if (t == null) d else if (en) "$d · ${time(t, true)}" else "$d ${time(t, false)}"
     }
 
-    fun category(c: Category, en: Boolean): String = when (c) {
-        Category.WORK -> if (en) "Work" else "工作"
-        Category.LIFE -> if (en) "Life" else "生活"
-        Category.HEALTH -> if (en) "Health" else "健康"
-        Category.BILLS -> if (en) "Bills" else "账单"
-        Category.ANNIVERSARY -> if (en) "Anniversary" else "纪念日"
-        Category.PERSONAL -> if (en) "Personal" else "个人"
-    }
-
     fun repeat(r: Repeat, anchor: LocalDate, en: Boolean): String = when (r) {
         Repeat.NONE -> if (en) "Never" else "不重复"
         Repeat.DAILY -> if (en) "Daily" else "每天"
@@ -110,8 +100,9 @@ object Fmt {
             }
         }
         if (minutes == 0) return if (en) "At time" else "准时"
-        val d = minutes / 1440
-        val h = (minutes % 1440) / 60
+        // Up to a day is said in hours ("提前 24 小时"); longer in days.
+        val d = if (minutes <= 1440 && minutes % 60 == 0) 0 else minutes / 1440
+        val h = (minutes - d * 1440) / 60
         val m = minutes % 60
         return if (en) {
             val parts = buildList {
@@ -146,10 +137,10 @@ object Fmt {
         else "${ym.year}年${ym.monthValue}月"
 
     /** Subtitle of a row: "健康 · 每年 · 提前 1 小时". */
-    fun meta(e: Event, en: Boolean, extra: String? = null): String {
+    fun meta(e: Event, en: Boolean, extra: String? = null, topic: String? = null): String {
         val parts = buildList {
             extra?.let { add(it) }
-            e.category?.let { add(category(it, en)) }
+            topic?.let { add(it) }
             repeatShort(e.repeat, en)?.let { add(it) }
             if (e.postponedTo == null) reminders(e.reminders, e.time == null, en)?.let { add(it) }
             else add(if (en) "Postponed" else "已推迟")

@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.qymartin.reinminder.R
-import io.github.qymartin.reinminder.data.Category
+import io.github.qymartin.reinminder.data.Repeat
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.logic.Fmt
 import io.github.qymartin.reinminder.logic.isOverdue
@@ -79,7 +79,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
         if (mode == 1) {
             val occ = occurrencesIn(events, monthStart, monthEnd)
             val byDay = occ.groupBy { it.date }
-            val repeating = occ.map { it.event }.distinctBy { it.id }.count { it.repeat != io.github.qymartin.reinminder.data.Repeat.NONE }
+            val repeating = occ.map { it.event }.distinctBy { it.id }.count { it.repeat != Repeat.NONE }
             item {
                 val sub = if (en) "${occ.size} this month · $repeating repeating" else "本月 ${occ.size} 项 · $repeating 项重复"
                 ScreenTitle(stringResource(R.string.tab_schedule), sub)
@@ -242,7 +242,7 @@ private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Lon
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(o.event.title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Text1)
-                    val meta = Fmt.meta(o.event, en)
+                    val meta = Fmt.meta(o.event, en, topic = LocalTopics.current.nameOf(o.event.topic))
                     if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3)
                 }
                 Spacer(Modifier.width(8.dp))
@@ -254,6 +254,6 @@ private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Lon
 
 private fun barColor(o: Occ, today: LocalDate): Color = when {
     o.date.isBefore(today) -> Amber
-    o.event.category == Category.ANNIVERSARY -> Purple
+    o.event.repeat == Repeat.YEARLY -> Purple
     else -> Accent
 }

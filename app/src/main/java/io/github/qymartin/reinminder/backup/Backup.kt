@@ -2,6 +2,8 @@ package io.github.qymartin.reinminder.backup
 
 import io.github.qymartin.reinminder.data.Codec
 import io.github.qymartin.reinminder.data.Event
+import io.github.qymartin.reinminder.data.Topic
+import io.github.qymartin.reinminder.data.TopicCodec
 import org.json.JSONObject
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -21,17 +23,24 @@ object Backup {
     private val MAGIC = "RMBK1".toByteArray(Charsets.US_ASCII)
     private const val ITERATIONS = 120_000
 
-    fun toJson(events: List<Event>, exportedAt: Long): String = JSONObject().apply {
+    /** What a backup holds. [topics] is null for 1.0 backups, which had fixed categories. */
+    data class Contents(val events: List<Event>, val topics: List<Topic>?)
+
+    fun toJson(events: List<Event>, topics: List<Topic>, exportedAt: Long): String = JSONObject().apply {
         put("app", "reinminder")
-        put("format", 1)
+        put("format", 2)
         put("exportedAt", exportedAt)
         put("events", Codec.listToJson(events))
+        put("topics", TopicCodec.listToJson(topics))
     }.toString()
 
-    fun fromJson(json: String): List<Event> = try {
+    fun fromJson(json: String): Contents = try {
         val o = JSONObject(json)
         if (o.optString("app") != "reinminder") throw BadBackupException()
-        Codec.listFromJson(o.getJSONArray("events"))
+        Contents(
+            Codec.listFromJson(o.getJSONArray("events")),
+            o.optJSONArray("topics")?.let { TopicCodec.listFromJson(it) },
+        )
     } catch (e: BadBackupException) {
         throw e
     } catch (e: Exception) {

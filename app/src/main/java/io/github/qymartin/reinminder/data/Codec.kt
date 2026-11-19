@@ -11,7 +11,7 @@ object Codec {
     fun toJson(e: Event): JSONObject = JSONObject().apply {
         put("id", e.id)
         put("title", e.title)
-        e.category?.let { put("category", it.key) }
+        e.topic?.let { put("topic", it) }
         put("anchor", e.anchor.toString())
         put("date", e.date.toString())
         e.time?.let { put("time", it.toString()) }
@@ -33,7 +33,8 @@ object Codec {
         Event(
             id = o.getLong("id"),
             title = o.optString("title", ""),
-            category = Category.of(o.optString("category", "").ifEmpty { null }),
+            // 1.0 stored a fixed category key; those keys are the ids of the seeded topics.
+            topic = o.optString("topic", "").ifEmpty { o.optString("category", "") }.ifEmpty { null },
             anchor = o.optString("anchor", "").ifEmpty { null }?.let { LocalDate.parse(it) } ?: date,
             date = date,
             time = o.optString("time", "").ifEmpty { null }?.let { LocalTime.parse(it) },
@@ -55,4 +56,17 @@ object Codec {
     fun listToJson(list: List<Event>): JSONArray = JSONArray().apply { list.forEach { put(toJson(it)) } }
 
     fun listFromJson(a: JSONArray): List<Event> = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { fromJson(it) } }
+}
+
+object TopicCodec {
+    fun listToJson(list: List<Topic>): JSONArray = JSONArray().apply {
+        list.forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
+    }
+
+    fun listFromJson(a: JSONArray): List<Topic> = (0 until a.length()).mapNotNull { i ->
+        val o = a.optJSONObject(i) ?: return@mapNotNull null
+        val id = o.optString("id", "")
+        val name = o.optString("name", "")
+        if (id.isEmpty() || name.isEmpty()) null else Topic(id, name)
+    }
 }

@@ -54,6 +54,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
     val en = LocalEn.current
     val now = LocalNow.current
     val today = now.toLocalDate()
+    val topics = LocalTopics.current
 
     val overdue = events.filter { it.isOverdue(now) }.sortedWith(eventOrder)
     val pending = events.filter { !it.done && !it.isOverdue(now) && it.shownDate() == today }
@@ -98,7 +99,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         ) {
                             Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(e.title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Text1)
-                                Text(Fmt.meta(e, en, Fmt.moment(e, today, en)), fontSize = 13.sp, color = AmberText)
+                                Text(Fmt.meta(e, en, Fmt.moment(e, today, en), topics.nameOf(e.topic)), fontSize = 13.sp, color = AmberText)
                             }
                             Spacer(Modifier.width(10.dp))
                             OutlinedButton(
@@ -129,7 +130,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                     val line: @Composable () -> Unit = {
                         EventLine(
                             title = e.title,
-                            meta = if (row.done) Fmt.meta(e.copy(reminders = emptyList()), en) else Fmt.meta(e, en),
+                            meta = if (row.done) Fmt.meta(e.copy(reminders = emptyList()), en, topic = topics.nameOf(e.topic)) else Fmt.meta(e, en, topic = topics.nameOf(e.topic)),
                             time = Fmt.timeOrAllDay(time, en),
                             done = row.done,
                             ringColor = if (soon) Amber else Muted,
@@ -178,7 +179,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                             Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(e.title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Text1)
                                 val t = if (d == e.shownDate()) e.shownTime() else e.time
-                                Text(Fmt.meta(e, en, t?.let { Fmt.time(it, en) }), fontSize = 13.sp, color = Text3)
+                                Text(Fmt.meta(e, en, t?.let { Fmt.time(it, en) }, topics.nameOf(e.topic)), fontSize = 13.sp, color = Text3)
                             }
                         }
                     }

@@ -81,19 +81,6 @@ class Prefs(context: Context) {
         get() = if (p.getString("lang", "zh") == "en") "en" else "zh"
         set(v) = p.edit().putString("lang", v).apply()
 
-    var timedDefaults: List<Int>
-        get() = ints("timedDefaults", listOf(60))
-        set(v) = putInts("timedDefaults", v)
-
-    /** All-day events: minutes before 09:00 on the day. 780 = the day before at 20:00. */
-    var allDayDefaults: List<Int>
-        get() = ints("allDayDefaults", listOf(780))
-        set(v) = putInts("allDayDefaults", v)
-
-    var anniversaryDefaults: List<Int>
-        get() = ints("anniversaryDefaults", listOf(1440, 0))
-        set(v) = putInts("anniversaryDefaults", v)
-
     var snoozeMinutes: Int
         get() = p.getInt("snoozeMinutes", 10)
         set(v) = p.edit().putInt("snoozeMinutes", v).apply()
@@ -118,12 +105,4 @@ class Prefs(context: Context) {
     var scheduled: Set<String>
         get() = p.getStringSet("scheduled", emptySet()) ?: emptySet()
         set(v) = p.edit().putStringSet("scheduled", v).apply()
-
-    private fun ints(key: String, def: List<Int>): List<Int> {
-        val s = p.getString(key, null) ?: return def
-        if (s.isBlank()) return emptyList()
-        return s.split(',').mapNotNull { it.trim().toIntOrNull() }
-    }
-
-    private fun putInts(key: String, v: List<Int>) = p.edit().putString(key, v.joinToString(",")).apply()
 }

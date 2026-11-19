@@ -12,13 +12,8 @@ enum class Repeat(val key: String) {
     }
 }
 
-enum class Category(val key: String) {
-    WORK("work"), LIFE("life"), HEALTH("health"), BILLS("bills"), ANNIVERSARY("anniversary"), PERSONAL("personal");
-
-    companion object {
-        fun of(key: String?): Category? = entries.firstOrNull { it.key == key }
-    }
-}
+/** A user-defined label ("主题"). [id] never changes, so renaming keeps events attached. */
+data class Topic(val id: String, val name: String)
 
 /**
  * One event. A repeating event is one record: [date] is its current occurrence and moves forward
@@ -28,7 +23,8 @@ enum class Category(val key: String) {
 data class Event(
     val id: Long,
     val title: String,
-    val category: Category? = null,
+    /** Id of a [Topic], or null. */
+    val topic: String? = null,
     val anchor: LocalDate,
     val date: LocalDate,
     /** null = all day. */

@@ -1,6 +1,5 @@
 package io.github.qymartin.reinminder
 
-import io.github.qymartin.reinminder.data.Category
 import io.github.qymartin.reinminder.data.Repeat
 import io.github.qymartin.reinminder.logic.QuickParser
 import org.junit.Assert.assertEquals
@@ -22,7 +21,7 @@ class QuickParserTest {
         assertEquals("小王生日", p.title)
         assertEquals(LocalDate.of(2026, 11, 5), p.date)
         assertEquals(LocalTime.of(17, 0), p.time)
-        assertEquals(Category.ANNIVERSARY, p.category)
+        assertEquals("纪念日", p.topic)
         assertEquals(Repeat.YEARLY, p.repeat)
     }
 
@@ -31,7 +30,7 @@ class QuickParserTest {
         assertEquals("体检", p.title)
         assertEquals(LocalDate.of(2026, 11, 20), p.date)
         assertEquals(LocalTime.of(15, 0), p.time)
-        assertEquals(Category.HEALTH, p.category)
+        assertEquals("健康", p.topic)
         assertNull(p.repeat)
     }
 
@@ -40,7 +39,7 @@ class QuickParserTest {
         assertEquals("checkup", p.title)
         assertEquals(LocalDate.of(2026, 11, 20), p.date)
         assertEquals(LocalTime.of(15, 0), p.time)
-        assertEquals(Category.HEALTH, p.category)
+        assertEquals("health", p.topic)
     }
 
     @Test fun tomorrowHalfPastAndImportant() {
@@ -57,7 +56,7 @@ class QuickParserTest {
         assertEquals(Repeat.WEEKLY, p.repeat)
         assertEquals(LocalDate.of(2026, 11, 23), p.date)
         assertEquals(LocalTime.of(9, 30), p.time)
-        assertEquals(Category.WORK, p.category)
+        assertEquals("工作", p.topic)
     }
 
     @Test fun monthlyDayNumber() {
@@ -72,7 +71,7 @@ class QuickParserTest {
         val p = QuickParser.parse("3月8日 妈妈生日", nov18)
         assertEquals(LocalDate.of(2027, 3, 8), p.date)
         assertEquals(Repeat.YEARLY, p.repeat)
-        assertEquals(Category.ANNIVERSARY, p.category)
+        assertNull(p.topic)
     }
 
     @Test fun tonight() {
