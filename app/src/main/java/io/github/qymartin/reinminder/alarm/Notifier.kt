@@ -83,7 +83,7 @@ object Notifier {
         val b = NotificationCompat.Builder(c, CH_REMIND)
             .setSmallIcon(R.drawable.ic_stat_bell)
             .setColor(0xFFA8C7FA.toInt())
-            .setContentTitle((if (e.important) "● " else "") + e.title.ifBlank { c.getString(R.string.untitled) })
+            .setContentTitle((if (e.important) "★ " else "") + e.title.ifBlank { c.getString(R.string.untitled) })
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

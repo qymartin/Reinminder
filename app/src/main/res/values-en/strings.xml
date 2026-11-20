@@ -8,7 +8,6 @@
     <string name="pick_event">Pick an event on the left to see it here</string>
     <string name="overdue">Overdue</string>
     <string name="overdue_n">Overdue · %1$d</string>
-    <string name="swipe_hint">Swipe left to postpone</string>
     <string name="postpone_tomorrow">Postpone to tomorrow</string>
     <string name="nothing_today">Nothing today. Tap + to add an event.</string>
     <string name="coming_up">Coming up</string>

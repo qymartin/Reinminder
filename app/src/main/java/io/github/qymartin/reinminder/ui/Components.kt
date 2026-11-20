@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,7 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import io.github.qymartin.reinminder.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -157,13 +160,16 @@ fun EventLine(
     }
 }
 
-/** Event title; important events get an amber dot in front. */
+/** Event title; important events get an amber star in front. */
 @Composable
 fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 16) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (important) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(if (muted) Muted else Amber))
-            Spacer(Modifier.width(7.dp))
+            Icon(
+                Icons.Filled.Star, contentDescription = stringResource(R.string.important),
+                tint = if (muted) Muted else Amber, modifier = Modifier.size((fontSize + 2).dp),
+            )
+            Spacer(Modifier.width(5.dp))
         }
         Text(
             title, fontSize = fontSize.sp, fontWeight = FontWeight.Medium,
