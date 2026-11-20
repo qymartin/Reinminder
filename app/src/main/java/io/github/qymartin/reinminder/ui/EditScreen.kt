@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -58,10 +59,12 @@ import java.time.LocalTime
 
 private val PRESETS = listOf(1440, 720, 60)
 private const val CUSTOM = -1
+private const val AT_TIME = 0
+private val CUSTOM_UNITS = listOf(Repeat.DAILY, Repeat.WEEKLY, Repeat.MONTHLY)
 
 /**
  * New / edit event, one page, top to bottom: content, time (date, time, repeat), reminder
- * (24 h / 12 h / 1 h before, or a custom date and time), topic, important.
+ * (at the time, unless 24 h / 12 h / 1 h before or a custom date and time is picked), topic, important, alarm-style.
  * Field state is saveable, so rotating or unfolding keeps unsaved edits.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -76,13 +79,16 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
 
     val startTime = initial.shownTime() ?: ALL_DAY_REF
     val startMoment = initial.shownDate().atTime(startTime)
-    val firstOffset = initial.reminders.maxOrNull() ?: 60
+    val firstOffset = initial.reminders.maxOrNull() ?: AT_TIME
 
     var title by rememberSaveable { mutableStateOf(initial.title) }
     var dateDay by rememberSaveable { mutableStateOf(initial.shownDate().toEpochDay()) }
     var timeText by rememberSaveable { mutableStateOf(startTime.toString()) }
     var repeatKey by rememberSaveable { mutableStateOf(initial.repeat.key) }
-    var reminderMode by rememberSaveable { mutableStateOf(if (firstOffset in PRESETS) firstOffset else CUSTOM) }
+    var customRepeat by rememberSaveable { mutableStateOf(initial.interval > 1) }
+    var intervalN by rememberSaveable { mutableStateOf(if (initial.interval > 1) initial.interval else 2) }
+    var alarmStyle by rememberSaveable { mutableStateOf(initial.alarmStyle) }
+    var reminderMode by rememberSaveable { mutableStateOf(if (firstOffset == AT_TIME || firstOffset in PRESETS) firstOffset else CUSTOM) }
     var customText by rememberSaveable { mutableStateOf(startMoment.minusMinutes(firstOffset.toLong()).toString()) }
     var topicId by rememberSaveable { mutableStateOf(initial.topic) }
     var important by rememberSaveable { mutableStateOf(initial.important) }
@@ -93,6 +99,7 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
     val time = LocalTime.parse(timeText)
     val moment = date.atTime(time)
     val repeat = Repeat.of(repeatKey)
+    val interval = if (customRepeat && repeat != Repeat.NONE) intervalN else 1
     val customAt = LocalDateTime.parse(customText)
     val offset = if (reminderMode == CUSTOM) Duration.between(customAt, moment).toMinutes().toInt() else reminderMode
     val customAfterEvent = reminderMode == CUSTOM && offset < 0
@@ -104,12 +111,14 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
     fun built(newDate: LocalDate, newTime: LocalTime) = initial.copy(
         title = title.trim(),
         topic = topicId,
-        anchor = if (repeat == Repeat.NONE || newDate != initial.date || repeat != initial.repeat) newDate else initial.anchor,
+        anchor = if (repeat == Repeat.NONE || newDate != initial.date || repeat != initial.repeat || interval != initial.interval) newDate else initial.anchor,
         date = newDate,
         time = newTime,
         repeat = repeat,
+        interval = interval,
         reminders = listOf(offset),
         important = important,
+        alarmStyle = alarmStyle,
         postponedTo = null,
         done = if (newDate != initial.date || newTime != initial.time) false else initial.done,
     )
@@ -134,7 +143,11 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
     fun applySuggestion() {
         parsed.date?.let { dateDay = it.toEpochDay() }
         parsed.time?.let { timeText = it.toString() }
-        parsed.repeat?.let { repeatKey = it.key }
+        parsed.repeat?.let { r ->
+            repeatKey = r.key
+            customRepeat = parsed.interval > 1 && r in CUSTOM_UNITS
+            if (customRepeat) intervalN = parsed.interval
+        }
         parsed.topic?.let { name -> topicId = topicStore.add(name).id }
         if (parsed.important) important = true
         title = parsed.title
@@ -198,29 +211,64 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Repeat.entries.forEach { r ->
                         FilterChip(
-                            selected = r == repeat, onClick = { repeatKey = r.key },
+                            selected = !customRepeat && r == repeat,
+                            onClick = { repeatKey = r.key; customRepeat = false },
                             label = { Text(Fmt.repeatShort(r, en) ?: Fmt.repeat(Repeat.NONE, date, en)) },
                             colors = chipColors(),
                         )
                     }
+                    FilterChip(
+                        selected = customRepeat && repeat != Repeat.NONE,
+                        onClick = {
+                            customRepeat = true
+                            if (repeat !in CUSTOM_UNITS) repeatKey = Repeat.WEEKLY.key
+                        },
+                        label = { Text(stringResource(R.string.custom)) },
+                        colors = chipColors(),
+                    )
                 }
-                if (repeat != Repeat.NONE) Text(Fmt.repeat(repeat, date, en), fontSize = 12.sp, color = Text3)
+                if (customRepeat && repeat != Repeat.NONE) {
+                    // 每 [−] N [+] 日 / 周 / 月
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.every), fontSize = 15.sp, color = Text1)
+                        IconButton(onClick = { if (intervalN > 1) intervalN-- }) {
+                            Text("−", fontSize = 22.sp, color = Accent)
+                        }
+                        Text("$intervalN", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Text1)
+                        IconButton(onClick = { if (intervalN < 99) intervalN++ }) {
+                            Text("+", fontSize = 22.sp, color = Accent)
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        CUSTOM_UNITS.forEach { u ->
+                            FilterChip(
+                                selected = repeat == u, onClick = { repeatKey = u.key },
+                                label = { Text(stringResource(unitLabel(u))) }, colors = chipColors(),
+                                modifier = Modifier.padding(end = 6.dp),
+                            )
+                        }
+                    }
+                }
+                if (repeat != Repeat.NONE) Text(Fmt.repeat(repeat, date, en, interval), fontSize = 12.sp, color = Text3)
             }
 
             // 3. Reminder
             SectionCard {
                 LabelTitle(stringResource(R.string.reminder))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Nothing picked = remind at the event time.
                     PRESETS.forEach { m ->
                         FilterChip(
-                            selected = reminderMode == m, onClick = { reminderMode = m },
+                            selected = reminderMode == m,
+                            onClick = { reminderMode = if (reminderMode == m) AT_TIME else m },
                             label = { Text(Fmt.reminder(m, false, en)) }, colors = chipColors(),
                         )
                     }
                     FilterChip(
                         selected = reminderMode == CUSTOM,
                         onClick = {
-                            if (reminderMode != CUSTOM) {
+                            if (reminderMode == CUSTOM) {
+                                reminderMode = AT_TIME
+                            } else {
                                 // Start from the current choice, so the custom time is close to what was set.
                                 customText = moment.minusMinutes(reminderMode.toLong()).toString()
                                 reminderMode = CUSTOM
@@ -241,8 +289,9 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
                     }
                 } else {
                     val at = moment.minusMinutes(reminderMode.toLong())
+                    val whenText = Fmt.day(at.toLocalDate(), today, en) + " " + Fmt.time(at.toLocalTime(), en)
                     Text(
-                        stringResource(R.string.reminds_at, Fmt.day(at.toLocalDate(), today, en) + " " + Fmt.time(at.toLocalTime(), en)),
+                        stringResource(if (reminderMode == AT_TIME) R.string.reminds_on_time else R.string.reminds_at, whenText),
                         fontSize = 12.sp, color = Text3,
                     )
                 }
@@ -257,6 +306,8 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
             // 5. Important
             SectionCard {
                 SwitchRow(stringResource(R.string.important), stringResource(R.string.important_note), important, onChange = { important = it })
+                RowDivider()
+                SwitchRow(stringResource(R.string.alarm_style), stringResource(R.string.alarm_style_note), alarmStyle, onChange = { alarmStyle = it })
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -326,4 +377,10 @@ private fun ScopeDialog(onDismiss: () -> Unit, onOnlyThis: () -> Unit, onAll: ()
             }
         },
     )
+}
+
+private fun unitLabel(r: Repeat): Int = when (r) {
+    Repeat.DAILY -> R.string.unit_day
+    Repeat.WEEKLY -> R.string.unit_week
+    else -> R.string.unit_month
 }

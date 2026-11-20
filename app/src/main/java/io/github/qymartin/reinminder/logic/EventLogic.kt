@@ -2,6 +2,7 @@ package io.github.qymartin.reinminder.logic
 
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.Repeat
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -34,22 +35,23 @@ fun Event.isOverdue(now: LocalDateTime): Boolean {
     return if (isAllDay()) shownDate().isBefore(now.toLocalDate()) else moment().isBefore(now)
 }
 
-/** True when this occurrence was completed today and should still show, ticked, on Today. */
-fun Event.completedToday(today: LocalDate): Boolean = lastDoneOn == today
-
-/** Series date number [n] (0 = anchor). */
-fun seriesDate(anchor: LocalDate, repeat: Repeat, n: Long): LocalDate = when (repeat) {
-    Repeat.NONE -> anchor
-    Repeat.DAILY -> anchor.plusDays(n)
-    Repeat.WEEKLY -> anchor.plusWeeks(n)
-    Repeat.MONTHLY -> anchor.plusMonths(n)
-    Repeat.YEARLY -> anchor.plusYears(n)
+/** Series date number [n] (0 = anchor), every [interval] units. */
+fun seriesDate(anchor: LocalDate, repeat: Repeat, n: Long, interval: Int = 1): LocalDate {
+    val k = n * interval
+    return when (repeat) {
+        Repeat.NONE -> anchor
+        Repeat.DAILY -> anchor.plusDays(k)
+        Repeat.WEEKLY -> anchor.plusWeeks(k)
+        Repeat.MONTHLY -> anchor.plusMonths(k)
+        Repeat.YEARLY -> anchor.plusYears(k)
+    }
 }
 
 /** First series date strictly after [after], or null for a non-repeating event. */
-fun nextSeriesDate(anchor: LocalDate, repeat: Repeat, after: LocalDate): LocalDate? {
+fun nextSeriesDate(anchor: LocalDate, repeat: Repeat, after: LocalDate, interval: Int = 1): LocalDate? {
     if (repeat == Repeat.NONE) return null
     if (after.isBefore(anchor)) return anchor
+    val step = interval.coerceAtLeast(1)
     val unit = when (repeat) {
         Repeat.DAILY -> ChronoUnit.DAYS
         Repeat.WEEKLY -> ChronoUnit.WEEKS
@@ -57,30 +59,53 @@ fun nextSeriesDate(anchor: LocalDate, repeat: Repeat, after: LocalDate): LocalDa
         Repeat.YEARLY -> ChronoUnit.YEARS
         Repeat.NONE -> return null
     }
-    var n = maxOf(0L, unit.between(anchor, after) - 1)
+    var n = maxOf(0L, unit.between(anchor, after) / step - 1)
     while (true) {
-        val d = seriesDate(anchor, repeat, n)
+        val d = seriesDate(anchor, repeat, n, step)
         if (d.isAfter(after)) return d
         n++
     }
 }
 
+fun Event.nextSeriesDate(after: LocalDate): LocalDate? = nextSeriesDate(anchor, repeat, after, interval)
+
+/** "完成并存档" (non-repeating): kept and listed under 已完成. */
+fun Event.archived(today: LocalDate): Event =
+    copy(done = true, purge = false, lastDoneOn = today, lastDoneTime = shownTime())
+
+/** "完成并删除" (non-repeating): struck through today, deleted after midnight. */
+fun Event.doneAndDeleted(today: LocalDate): Event =
+    copy(done = true, purge = true, lastDoneOn = today, lastDoneTime = shownTime())
+
+/** Back to a to-do (from 已完成, or undoing a "完成并删除" the same day). */
+fun Event.restored(): Event = copy(done = false, purge = false, lastDoneOn = null, lastDoneTime = null)
+
 /**
- * Completes the current occurrence. A repeating event moves to its next date on or after today,
- * so finishing an overdue one does not leave a trail of missed copies.
+ * A repeating event, after its current occurrence is completed: it moves to its next date on or after
+ * today, so finishing an overdue one does not leave a trail of missed copies.
  */
-fun Event.completed(today: LocalDate): Event {
-    val doneTime = shownTime()
-    if (repeat == Repeat.NONE) {
-        return copy(done = true, lastDoneOn = today, lastDoneTime = doneTime)
-    }
+fun Event.advanced(today: LocalDate): Event {
     val from = later(date, today.minusDays(1))
-    val next = nextSeriesDate(anchor, repeat, from) ?: date
-    return copy(date = next, postponedTo = null, lastDoneOn = today, lastDoneTime = doneTime)
+    return copy(date = nextSeriesDate(from) ?: date, postponedTo = null)
 }
 
-/** Undo a completion made today (only for non-repeating events; repeating ones keep moving). */
-fun Event.uncompleted(): Event = copy(done = false, lastDoneOn = null, lastDoneTime = null)
+/** The completed occurrence of a repeating event, kept as an archived one-off. */
+fun Event.occurrenceRecord(newId: Long, today: LocalDate): Event = copy(
+    id = newId, repeat = Repeat.NONE, interval = 1,
+    anchor = shownDate(), date = shownDate(), time = shownTime(), postponedTo = null,
+    done = true, purge = false, lastDoneOn = today, lastDoneTime = shownTime(),
+)
+
+/** Alarm-style: the next "again" reminder (event time, then every 10 minutes) after [now]. */
+fun Event.nextNag(now: LocalDateTime): LocalDateTime? {
+    if (!alarmStyle || done) return null
+    val m = moment()
+    if (m.isAfter(now)) return m
+    val steps = Duration.between(m, now).toMinutes() / NAG_MINUTES + 1
+    return m.plusMinutes(steps * NAG_MINUTES)
+}
+
+const val NAG_MINUTES = 10L
 
 fun Event.postponed(to: LocalDateTime): Event = copy(postponedTo = to, done = false)
 
@@ -97,16 +122,16 @@ fun Event.occurrences(from: LocalDate, to: LocalDate, limit: Int = 400): List<Lo
     val first = shownDate()
     if (!first.isBefore(from) && !first.isAfter(to)) out.add(first)
     if (repeat == Repeat.NONE) return out
-    var d: LocalDate? = nextSeriesDate(anchor, repeat, later(date, from.minusDays(1)))
+    var d: LocalDate? = nextSeriesDate(later(date, from.minusDays(1)))
     while (d != null && !d.isAfter(to) && out.size < limit) {
         if (d != first && !d.isBefore(from)) out.add(d)
-        d = nextSeriesDate(anchor, repeat, d)
+        d = nextSeriesDate(d)
     }
     return out.sortedBy { it.toEpochDay() }
 }
 
-/** Events ordered the way lists show them: overdue/earlier first, all-day before timed on the same day. */
-val eventOrder: Comparator<Event> = compareBy<Event>({ it.shownDate() }, { it.shownTime() != null }, { it.shownTime() }, { it.id })
+/** Events ordered the way lists show them: earlier days first; on a day, important first, then by time. */
+val eventOrder: Comparator<Event> = compareBy<Event>({ it.shownDate() }, { !it.important }, { it.shownTime() != null }, { it.shownTime() }, { it.id })
 
 /** The later of two dates (kotlin's maxOf does not accept java.time dates). */
 fun later(a: LocalDate, b: LocalDate): LocalDate = if (a.isAfter(b)) a else b

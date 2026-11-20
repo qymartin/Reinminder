@@ -12,6 +12,11 @@ Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminde
   Value-dependent phrases (dates, reminder labels) live in `logic/Formats.kt` (`Fmt`). The language is the app's own
   setting (`Prefs.lang`), applied with `Lang.wrap` in activities and receivers — not the phone's language.
 - Every change to events goes through `alarm/Repo`, which reschedules alarms.
+- Completing (1.2): one-off tasks are either archived (`done`, kept under 已完成) or "done and delete"
+  (`done` + `purge`: struck through today, removed after midnight by `EventStore.purge`, run from
+  `Alarms.rescheduleAll` and a midnight alarm). Repeating tasks complete one occurrence: an archived
+  one-off copy is added and the series advances. Reminders default to "at time" (offset 0).
+  Alarm-style = after the event time, a normal reminder every 10 minutes until done or moved (`nextNag`).
 
 ## Layout
 - `data/` model, JSON codec, file stores (`events.json`, `topics.json` in private storage), prefs, language.

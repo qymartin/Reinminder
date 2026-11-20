@@ -5,10 +5,14 @@ import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Topic
 import io.github.qymartin.reinminder.data.TopicStore
-import io.github.qymartin.reinminder.logic.completed
+import io.github.qymartin.reinminder.data.Repeat
+import io.github.qymartin.reinminder.logic.advanced
+import io.github.qymartin.reinminder.logic.archived
+import io.github.qymartin.reinminder.logic.doneAndDeleted
+import io.github.qymartin.reinminder.logic.occurrenceRecord
 import io.github.qymartin.reinminder.logic.postponed
 import io.github.qymartin.reinminder.logic.postponedToTomorrow
-import io.github.qymartin.reinminder.logic.uncompleted
+import io.github.qymartin.reinminder.logic.restored
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -32,13 +36,33 @@ object Repo {
         after(c, id)
     }
 
-    fun complete(c: Context, id: Long) {
-        store(c).update(id) { it.completed(LocalDate.now()) }
+    /**
+     * "完成并存档". A repeating event completes only this occurrence: a completed copy goes to 已完成
+     * and the series moves to its next date.
+     */
+    fun archive(c: Context, id: Long) {
+        val today = LocalDate.now()
+        val e = store(c).get(id) ?: return
+        if (e.repeat == Repeat.NONE) {
+            store(c).upsert(e.archived(today))
+        } else {
+            store(c).upsert(e.occurrenceRecord(store(c).newId(), today))
+            store(c).upsert(e.advanced(today))
+        }
         after(c, id)
     }
 
-    fun uncomplete(c: Context, id: Long) {
-        store(c).update(id) { it.uncompleted() }
+    /** "完成并删除": struck through today, deleted after midnight. Repeating events: same as [archive]. */
+    fun completeAndDelete(c: Context, id: Long) {
+        val e = store(c).get(id) ?: return
+        if (e.repeat != Repeat.NONE) return archive(c, id)
+        store(c).upsert(e.doneAndDeleted(LocalDate.now()))
+        after(c, id)
+    }
+
+    /** Back to a to-do: from 已完成, or undoing "完成并删除" the same day. */
+    fun restore(c: Context, id: Long) {
+        store(c).update(id) { it.restored() }
         Alarms.rescheduleAll(c)
     }
 

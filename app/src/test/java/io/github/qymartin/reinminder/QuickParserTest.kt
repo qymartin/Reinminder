@@ -118,4 +118,18 @@ class QuickParserTest {
         assertEquals(LocalTime.of(10, 0), p.time)
         assertEquals("面试", p.title)
     }
+
+    @Test fun everyNUnits() {
+        val a = QuickParser.parse("每2周 打扫 ", nov18)
+        assertEquals(Repeat.WEEKLY, a.repeat)
+        assertEquals(2, a.interval)
+        assertEquals("打扫", a.title)
+        val b = QuickParser.parse("every 3 months haircut", nov18)
+        assertEquals(Repeat.MONTHLY, b.repeat)
+        assertEquals(3, b.interval)
+        assertEquals("haircut", b.title)
+        val c = QuickParser.parse("每周五 周会", nov18)
+        assertEquals(Repeat.WEEKLY, c.repeat)
+        assertEquals(1, c.interval)
+    }
 }

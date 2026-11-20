@@ -11,6 +11,8 @@ data class Parsed(
     val date: LocalDate? = null,
     val time: LocalTime? = null,
     val repeat: Repeat? = null,
+    /** "每 2 周" -> 2. */
+    val interval: Int = 1,
     /** Text of the first #tag, to be matched to a topic by name. */
     val topic: String? = null,
     val important: Boolean = false,
@@ -29,6 +31,8 @@ object QuickParser {
 
     // Repeat
     private val zhEveryWeekdayRe = Regex("""每(?=(?:周|星期|礼拜)[一二三四五六日天1-7])""")
+    private val zhEveryNRe = Regex("""每\s*(\d{1,3}|[一二两三四五六七八九十]{1,3})\s*(天|日|周|星期|个月|月|年)""")
+    private val enEveryNRe = Regex("""\bevery\s+(\d{1,3})\s+(days?|weeks?|months?|years?)\b""", I)
     private val zhRepeatRe = Regex("""每(天|日|周|星期|礼拜|月|年)""")
     private val enEveryWeekdayRe = Regex("""\bevery\s+(?=(?:mon|tue|wed|thu|fri|sat|sun))""", I)
     private val enRepeatRe = Regex("""\b(?:every\s+(day|week|month|year)|(daily|weekly|monthly|yearly|annually))\b""", I)
@@ -73,6 +77,7 @@ object QuickParser {
         var topic: String? = null
         var important = false
         var repeat: Repeat? = null
+        var interval = 1
         var date: LocalDate? = null
         var time: LocalTime? = null
         var evening = false
@@ -93,6 +98,26 @@ object QuickParser {
         bangRe.find(text)?.let { important = true; cut(it) }
 
         // Repeat
+        zhEveryNRe.find(text)?.let { m ->
+            val n = number(m.groupValues[1])
+            if (n != null && n >= 1) {
+                interval = n
+                repeat = when (m.groupValues[2]) {
+                    "天", "日" -> Repeat.DAILY
+                    "周", "星期" -> Repeat.WEEKLY
+                    "个月", "月" -> Repeat.MONTHLY
+                    else -> Repeat.YEARLY
+                }
+                cut(m)
+            }
+        }
+        enEveryNRe.find(text)?.let { m ->
+            interval = m.groupValues[1].toInt().coerceAtLeast(1)
+            repeat = when (m.groupValues[2].lowercase().take(3)) {
+                "day" -> Repeat.DAILY; "wee" -> Repeat.WEEKLY; "mon" -> Repeat.MONTHLY; else -> Repeat.YEARLY
+            }
+            cut(m)
+        }
         zhEveryWeekdayRe.find(text)?.let { repeat = Repeat.WEEKLY; cut(it) }
         enEveryWeekdayRe.find(text)?.let { repeat = Repeat.WEEKLY; cut(it) }
         zhRepeatRe.find(text)?.let { m ->
@@ -243,7 +268,7 @@ object QuickParser {
 
         val title = cleanTitle(text)
         if (repeat == null && anniversaryWords.containsMatchIn(title)) repeat = Repeat.YEARLY
-        return Parsed(title, date, time, repeat, topic, important)
+        return Parsed(title, date, time, repeat, interval, topic, important)
     }
 
     private fun adjustHour(h: Int, period: String, ampm: String, evening: Boolean, morning: Boolean, guess: Boolean): Int {

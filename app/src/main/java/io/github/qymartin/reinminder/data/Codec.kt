@@ -16,11 +16,13 @@ object Codec {
         put("date", e.date.toString())
         e.time?.let { put("time", it.toString()) }
         put("repeat", e.repeat.key)
+        put("interval", e.interval)
         put("reminders", JSONArray(e.reminders))
         put("important", e.important)
         put("alarmStyle", e.alarmStyle)
         put("notes", e.notes)
         put("done", e.done)
+        put("purge", e.purge)
         e.lastDoneOn?.let { put("lastDoneOn", it.toString()) }
         e.lastDoneTime?.let { put("lastDoneTime", it.toString()) }
         e.postponedTo?.let { put("postponedTo", it.toString()) }
@@ -39,11 +41,13 @@ object Codec {
             date = date,
             time = o.optString("time", "").ifEmpty { null }?.let { LocalTime.parse(it) },
             repeat = Repeat.of(o.optString("repeat", "none")),
+            interval = o.optInt("interval", 1).coerceIn(1, 999),
             reminders = if (rem == null) emptyList() else (0 until rem.length()).map { rem.getInt(it) }.take(MAX_REMINDERS),
             important = o.optBoolean("important", false),
             alarmStyle = o.optBoolean("alarmStyle", false),
             notes = o.optString("notes", ""),
             done = o.optBoolean("done", false),
+            purge = o.optBoolean("purge", false),
             lastDoneOn = o.optString("lastDoneOn", "").ifEmpty { null }?.let { LocalDate.parse(it) },
             lastDoneTime = o.optString("lastDoneTime", "").ifEmpty { null }?.let { LocalTime.parse(it) },
             postponedTo = o.optString("postponedTo", "").ifEmpty { null }?.let { LocalDateTime.parse(it) },

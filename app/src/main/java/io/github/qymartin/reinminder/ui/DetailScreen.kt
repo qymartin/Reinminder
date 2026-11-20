@@ -51,6 +51,7 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
     val now = LocalNow.current
     val today = now.toLocalDate()
     var confirmDelete by remember { mutableStateOf(false) }
+    var showComplete by remember { mutableStateOf(false) }
     val doneNow = e.done
 
     Column(Modifier.fillMaxSize()) {
@@ -73,7 +74,7 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LocalTopics.current.nameOf(e.topic)?.let { Chip(it) }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
-                    if (doneNow) Chip(stringResource(R.string.done_label))
+                    if (doneNow) Chip(stringResource(if (e.purge) R.string.deleted_at_midnight else R.string.done_label))
                     if (e.isOverdue(now)) Chip(stringResource(R.string.overdue), color = Amber, background = AmberBg, border = AmberBorder)
                 }
             }
@@ -90,7 +91,7 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
                         fontSize = 12.sp, color = Text3,
                     )
                 }
-                KeyValueRow(stringResource(R.string.repeat), Fmt.repeat(e.repeat, e.anchor, en), valueColor = Accent)
+                KeyValueRow(stringResource(R.string.repeat), Fmt.repeat(e.repeat, e.anchor, en, e.interval), valueColor = Accent)
             }
 
             SectionCard(spacing = 4) {
@@ -108,13 +109,13 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
                         ReminderLine(Fmt.reminder(m, allDay, en), Fmt.date(at.toLocalDate(), en, today) + " " + Fmt.time(at.toLocalTime(), en))
                     }
                 }
-                Spacer(Modifier.height(6.dp))
-                RowDivider()
-                Spacer(Modifier.height(6.dp))
-                SwitchRow(
-                    stringResource(R.string.alarm_style), stringResource(R.string.alarm_style_note), e.alarmStyle,
-                    onChange = { Repo.save(ctx, e.copy(alarmStyle = it)) },
-                )
+                if (e.alarmStyle) {
+                    Spacer(Modifier.height(6.dp))
+                    RowDivider()
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.alarm_style), fontSize = 15.sp, color = Text1)
+                    Text(stringResource(R.string.alarm_style_note), fontSize = 12.sp, color = Text3)
+                }
             }
 
             if (e.notes.isNotBlank()) {
@@ -132,18 +133,29 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
         ) {
             if (e.done) {
                 OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.weight(1f).height(48.dp)) { Text(stringResource(R.string.delete)) }
-                Button(onClick = { Repo.uncomplete(ctx, e.id) }, modifier = Modifier.weight(2f).height(48.dp)) {
-                    Text(stringResource(R.string.undo_done), fontWeight = FontWeight.Bold)
+                Button(onClick = { Repo.restore(ctx, e.id) }, modifier = Modifier.weight(2f).height(48.dp)) {
+                    Text(stringResource(R.string.restore), fontWeight = FontWeight.Bold)
                 }
             } else {
                 OutlinedButton(onClick = { Repo.postponeToTomorrow(ctx, e.id) }, modifier = Modifier.weight(1f).height(48.dp)) {
                     Text(stringResource(R.string.postpone_tomorrow))
                 }
-                Button(onClick = { Repo.complete(ctx, e.id); if (!embedded && e.repeat == Repeat.NONE) onBack() }, modifier = Modifier.weight(1f).height(48.dp)) {
+                Button(onClick = { showComplete = true }, modifier = Modifier.weight(1f).height(48.dp)) {
                     Text(stringResource(R.string.mark_done), fontWeight = FontWeight.Bold)
                 }
             }
         }
+    }
+
+    if (showComplete) {
+        CompleteDialog(
+            title = e.title,
+            repeating = e.repeat != Repeat.NONE,
+            onDismiss = { showComplete = false },
+            onPostpone = { showComplete = false; Repo.postponeToTomorrow(ctx, e.id) },
+            onArchive = { showComplete = false; Repo.archive(ctx, e.id) },
+            onDelete = { showComplete = false; Repo.completeAndDelete(ctx, e.id) },
+        )
     }
 
     if (confirmDelete) {

@@ -84,7 +84,6 @@ fun SettingsScreen(events: List<Event>) {
 
     // Settings that live in prefs, mirrored as state so the screen updates.
     val topics by remember { TopicStore.get(ctx) }.topics.collectAsState()
-    var snooze by remember { mutableIntStateOf(prefs.snoozeMinutes) }
     var encrypt by remember { mutableStateOf(prefs.encryptBackup) }
     var lastExport by remember { mutableStateOf(prefs.lastExportAt to prefs.lastExportEncrypted) }
     var editing by remember { mutableStateOf<String?>(null) } // which choice dialog is open
@@ -192,11 +191,10 @@ fun SettingsScreen(events: List<Event>) {
             ScreenTitle(stringResource(R.string.tab_settings), "Reinminder · v$version")
         }
 
-        // General: language and snooze, as plain rows.
+        // General: language as a plain row.
         item {
             SectionCard {
                 KeyValueRow(stringResource(R.string.language_title), if (en) "English" else "中文", Accent) { editing = "lang" }
-                KeyValueRow(stringResource(R.string.snooze), stringResource(R.string.minutes_n, snooze), Accent) { editing = "snooze" }
             }
         }
 
@@ -266,13 +264,6 @@ fun SettingsScreen(events: List<Event>) {
                     (ctx as? Activity)?.recreate()
                 }
             },
-        )
-        "snooze" -> ChoiceDialog(
-            stringResource(R.string.snooze),
-            Presets.snooze.map { stringResource(R.string.minutes_n, it) to it },
-            snooze,
-            onDismiss = { editing = null },
-            onPick = { prefs.snoozeMinutes = it; snooze = it; editing = null },
         )
     }
 

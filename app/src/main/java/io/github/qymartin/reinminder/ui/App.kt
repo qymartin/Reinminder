@@ -194,12 +194,12 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
     }
 }
 
-/** A blank event for the "new" form: the next full hour, reminded 1 hour before. */
+/** A blank event for the "new" form: the next full hour, reminded at that time. */
 private fun newEvent(id: Long, now: LocalDateTime): Event {
     val at = now.plusHours(1).withMinute(0).withSecond(0).withNano(0)
     return Event(
         id = id, title = "", anchor = at.toLocalDate(), date = at.toLocalDate(), time = at.toLocalTime(),
-        reminders = listOf(60), createdAt = System.currentTimeMillis(),
+        reminders = listOf(0), createdAt = System.currentTimeMillis(),
     )
 }
 

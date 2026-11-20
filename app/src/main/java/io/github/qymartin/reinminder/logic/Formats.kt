@@ -61,21 +61,38 @@ object Fmt {
         return if (t == null) d else if (en) "$d · ${time(t, true)}" else "$d ${time(t, false)}"
     }
 
-    fun repeat(r: Repeat, anchor: LocalDate, en: Boolean): String = when (r) {
-        Repeat.NONE -> if (en) "Never" else "不重复"
-        Repeat.DAILY -> if (en) "Daily" else "每天"
-        Repeat.WEEKLY -> if (en) "Weekly on ${weekday(anchor, true)}" else "每${weekday(anchor, false)}"
-        Repeat.MONTHLY -> if (en) "Monthly on the ${ordinal(anchor.dayOfMonth)}" else "每月 ${anchor.dayOfMonth} 日"
-        Repeat.YEARLY -> if (en) "Yearly on ${monthDay(anchor, true)}" else "每年 ${monthDay(anchor, false)}"
+    /** "每周五" / "每 2 周（周五）" / "Every 2 weeks on Fri". */
+    fun repeat(r: Repeat, anchor: LocalDate, en: Boolean, interval: Int = 1): String {
+        if (interval <= 1) return when (r) {
+            Repeat.NONE -> if (en) "Never" else "不重复"
+            Repeat.DAILY -> if (en) "Daily" else "每天"
+            Repeat.WEEKLY -> if (en) "Weekly on ${weekday(anchor, true)}" else "每${weekday(anchor, false)}"
+            Repeat.MONTHLY -> if (en) "Monthly on the ${ordinal(anchor.dayOfMonth)}" else "每月 ${anchor.dayOfMonth} 日"
+            Repeat.YEARLY -> if (en) "Yearly on ${monthDay(anchor, true)}" else "每年 ${monthDay(anchor, false)}"
+        }
+        val every = repeatShort(r, en, interval) ?: return repeat(r, anchor, en)
+        return when (r) {
+            Repeat.WEEKLY -> if (en) "$every on ${weekday(anchor, true)}" else "$every（${weekday(anchor, false)}）"
+            Repeat.MONTHLY -> if (en) "$every on the ${ordinal(anchor.dayOfMonth)}" else "$every（${anchor.dayOfMonth} 日）"
+            Repeat.YEARLY -> if (en) "$every on ${monthDay(anchor, true)}" else "$every（${monthDay(anchor, false)}）"
+            else -> every
+        }
     }
 
-    /** Short repeat word for row subtitles. */
-    fun repeatShort(r: Repeat, en: Boolean): String? = when (r) {
-        Repeat.NONE -> null
-        Repeat.DAILY -> if (en) "Daily" else "每天"
-        Repeat.WEEKLY -> if (en) "Weekly" else "每周"
-        Repeat.MONTHLY -> if (en) "Monthly" else "每月"
-        Repeat.YEARLY -> if (en) "Yearly" else "每年"
+    /** Short repeat words for row subtitles: "每周" / "每 3 天" / "Every 2 weeks". */
+    fun repeatShort(r: Repeat, en: Boolean, interval: Int = 1): String? {
+        if (r == Repeat.NONE) return null
+        if (interval <= 1) return when (r) {
+            Repeat.DAILY -> if (en) "Daily" else "每天"
+            Repeat.WEEKLY -> if (en) "Weekly" else "每周"
+            Repeat.MONTHLY -> if (en) "Monthly" else "每月"
+            else -> if (en) "Yearly" else "每年"
+        }
+        return if (en) {
+            "Every $interval " + when (r) { Repeat.DAILY -> "days"; Repeat.WEEKLY -> "weeks"; Repeat.MONTHLY -> "months"; else -> "years" }
+        } else {
+            "每 $interval " + when (r) { Repeat.DAILY -> "天"; Repeat.WEEKLY -> "周"; Repeat.MONTHLY -> "个月"; else -> "年" }
+        }
     }
 
     private fun ordinal(n: Int): String {
@@ -141,8 +158,9 @@ object Fmt {
         val parts = buildList {
             extra?.let { add(it) }
             topic?.let { add(it) }
-            repeatShort(e.repeat, en)?.let { add(it) }
-            if (e.postponedTo == null) reminders(e.reminders, e.time == null, en)?.let { add(it) }
+            repeatShort(e.repeat, en, e.interval)?.let { add(it) }
+            // "At time" is the default, so only earlier reminders are worth showing.
+            if (e.postponedTo == null) reminders(e.reminders.filter { it != 0 }, e.time == null, en)?.let { add(it) }
             else add(if (en) "Postponed" else "已推迟")
         }
         return parts.joinToString(" · ")

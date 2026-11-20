@@ -8,8 +8,9 @@ import android.net.Uri
 import android.os.Build
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Prefs
+import io.github.qymartin.reinminder.logic.nextNag
 import io.github.qymartin.reinminder.logic.reminderMoments
-import io.github.qymartin.reinminder.ui.MainActivity
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -41,6 +42,8 @@ object Alarms {
         val ctx = context.applicationContext
         val am = ctx.getSystemService(AlarmManager::class.java)
         val prefs = Prefs(ctx)
+        val store = EventStore.get(ctx)
+        store.purge(LocalDate.now())
         for (key in prefs.scheduled) {
             val id = key.substringBefore('/').toLongOrNull() ?: continue
             pending(ctx, key, id, PendingIntent.FLAG_NO_CREATE)?.let { am.cancel(it); it.cancel() }
@@ -48,27 +51,50 @@ object Alarms {
         val now = LocalDateTime.now()
         val zone = ZoneId.systemDefault()
         val keys = HashSet<String>()
-        for (e in EventStore.get(ctx).all()) {
+        for (e in store.all()) {
             if (e.done) continue
-            e.reminderMoments().forEachIndexed { i, t ->
-                if (t.isAfter(now)) {
-                    val key = "${e.id}/$i"
-                    val p = pending(ctx, key, e.id, PendingIntent.FLAG_UPDATE_CURRENT) ?: return@forEachIndexed
-                    set(ctx, am, t.atZone(zone).toInstant().toEpochMilli(), p, e.alarmStyle)
+            val moments = e.reminderMoments().filter { it.isAfter(now) }
+            moments.forEachIndexed { i, t ->
+                val key = "${e.id}/$i"
+                val p = pending(ctx, key, e.id, PendingIntent.FLAG_UPDATE_CURRENT) ?: return@forEachIndexed
+                set(ctx, am, t.atZone(zone).toInstant().toEpochMilli(), p)
+                keys += key
+            }
+            // Alarm-style: from the event time, again every 10 minutes. Only the next one is set;
+            // when it fires, this runs again and sets the one after.
+            val nag = e.nextNag(now)
+            if (nag != null && nag !in moments) {
+                val key = "${e.id}/nag"
+                pending(ctx, key, e.id, PendingIntent.FLAG_UPDATE_CURRENT)?.let {
+                    set(ctx, am, nag.atZone(zone).toInstant().toEpochMilli(), it)
                     keys += key
                 }
             }
         }
         prefs.scheduled = keys
+        scheduleMidnight(ctx, am)
     }
+
+    /** Wakes [BootReceiver] just after midnight, which clears yesterday's "完成并删除" events. */
+    private fun scheduleMidnight(ctx: Context, am: AlarmManager) {
+        val at = LocalDate.now().plusDays(1).atStartOfDay().plusMinutes(1)
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val p = PendingIntent.getBroadcast(
+            ctx, 0,
+            Intent(ctx, BootReceiver::class.java).setAction(ACTION_MIDNIGHT),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        am.setAndAllowWhileIdle(AlarmManager.RTC, at, p)
+    }
+
+    const val ACTION_MIDNIGHT = "io.github.qymartin.reinminder.MIDNIGHT"
 
     /** Rings again in [minutes]. Kept apart from the regular alarms so a reschedule does not drop it. */
     fun snooze(context: Context, id: Long, minutes: Int) {
         val ctx = context.applicationContext
         val am = ctx.getSystemService(AlarmManager::class.java)
         val p = pending(ctx, "$id/snooze", id, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
-        val alarmStyle = EventStore.get(ctx).get(id)?.alarmStyle == true
-        set(ctx, am, System.currentTimeMillis() + minutes * 60_000L, p, alarmStyle)
+        set(ctx, am, System.currentTimeMillis() + minutes * 60_000L, p)
     }
 
     fun cancelSnooze(context: Context, id: Long) {
@@ -77,18 +103,8 @@ object Alarms {
         pending(ctx, "$id/snooze", id, PendingIntent.FLAG_NO_CREATE)?.let { am.cancel(it); it.cancel() }
     }
 
-    private fun set(context: Context, am: AlarmManager, at: Long, p: PendingIntent, alarmStyle: Boolean) {
-        val exact = canExact(context)
-        when {
-            alarmStyle && exact -> {
-                val show = PendingIntent.getActivity(
-                    context, 0, Intent(context, MainActivity::class.java),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
-                am.setAlarmClock(AlarmManager.AlarmClockInfo(at, show), p)
-            }
-            exact -> am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p)
-            else -> am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p)
-        }
+    private fun set(context: Context, am: AlarmManager, at: Long, p: PendingIntent) {
+        if (canExact(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p)
+        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p)
     }
 }

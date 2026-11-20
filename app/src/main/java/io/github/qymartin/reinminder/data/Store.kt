@@ -47,6 +47,15 @@ class EventStore private constructor(private val file: File) {
     @Synchronized
     fun replaceAll(list: List<Event>) = save(list)
 
+    /** Deletes "完成并删除" events completed before [today]. Returns true if any were removed. */
+    @Synchronized
+    fun purge(today: java.time.LocalDate): Boolean {
+        val keep = state.value.filterNot { it.purge && it.done && (it.lastDoneOn?.isBefore(today) ?: true) }
+        if (keep.size == state.value.size) return false
+        save(keep)
+        return true
+    }
+
     @Synchronized
     fun newId(): Long {
         val max = state.value.maxOfOrNull { it.id } ?: 0L

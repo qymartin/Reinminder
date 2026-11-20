@@ -134,6 +134,8 @@ fun EventLine(
     onCheck: (() -> Unit)?,
     onClick: () -> Unit,
     selected: Boolean = false,
+    important: Boolean = false,
+    strike: Boolean = done,
 ) {
     Row(
         Modifier
@@ -147,15 +149,27 @@ fun EventLine(
     ) {
         if (onCheck != null) CheckCircle(done, ringColor, checkLabel, onCheck)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                title, fontSize = 16.sp, fontWeight = FontWeight.Medium,
-                color = if (done) Muted else Text1,
-                textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
+            TitleText(title, important, muted = done, strike = strike)
             if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
         Text(time, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (done) Muted else timeColor)
+    }
+}
+
+/** Event title; important events get an amber dot in front. */
+@Composable
+fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 16) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (important) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(if (muted) Muted else Amber))
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(
+            title, fontSize = fontSize.sp, fontWeight = FontWeight.Medium,
+            color = if (muted) Muted else Text1,
+            textDecoration = if (strike) TextDecoration.LineThrough else TextDecoration.None,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
     }
 }

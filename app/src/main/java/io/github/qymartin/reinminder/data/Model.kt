@@ -30,17 +30,24 @@ data class Event(
     /** null = all day. */
     val time: LocalTime? = null,
     val repeat: Repeat = Repeat.NONE,
+    /** Every [interval] days/weeks/months/years ("每 2 周"). */
+    val interval: Int = 1,
     /** Minutes before the reference time (event time, or 09:00 on the day for all-day events). */
     val reminders: List<Int> = emptyList(),
     val important: Boolean = false,
-    /** Full-screen, ringing until turned off. */
+    /** Alarm-style: after the event time, remind again every 10 minutes until done or moved. */
     val alarmStyle: Boolean = false,
     val notes: String = "",
-    /** Only used by non-repeating events. */
+    /**
+     * Completed (non-repeating events only; a repeating event moves to its next date and leaves a
+     * completed one-off copy behind). Completed events are archived ("已完成") unless [purge].
+     */
     val done: Boolean = false,
-    /** Day the user last completed an occurrence, so it still shows (ticked) on Today. */
+    /** "完成并删除": shown struck through on the day it was completed, deleted after midnight. */
+    val purge: Boolean = false,
+    /** Day it was completed. */
     val lastDoneOn: LocalDate? = null,
-    /** Date the completed occurrence belonged to, with its time, for the ticked row. */
+    /** Time of the completed occurrence (kept for old data). */
     val lastDoneTime: LocalTime? = null,
     /** This occurrence only, moved to another moment ("postpone" or "only this time" edits). */
     val postponedTo: LocalDateTime? = null,

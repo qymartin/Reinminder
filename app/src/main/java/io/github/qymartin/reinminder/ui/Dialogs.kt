@@ -107,3 +107,47 @@ fun PasswordDialog(title: String, twice: Boolean, error: String?, onDismiss: () 
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
+
+/**
+ * What tapping a task's tick circle offers. One-off: 推迟到明天 / 完成并存档 / 完成并删除.
+ * Repeating: 推迟到明天 / 完成本次 (the series itself is deleted from its edit page).
+ */
+@Composable
+fun CompleteDialog(
+    title: String,
+    repeating: Boolean,
+    onDismiss: () -> Unit,
+    onPostpone: () -> Unit,
+    onArchive: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = { Text(title, maxLines = 2) },
+        text = {
+            Column {
+                MenuRow(stringResource(R.string.postpone_tomorrow), null, onPostpone)
+                if (repeating) {
+                    MenuRow(stringResource(R.string.done_once), stringResource(R.string.done_once_note), onArchive)
+                } else {
+                    MenuRow(stringResource(R.string.done_archive), stringResource(R.string.done_archive_note), onArchive)
+                    MenuRow(stringResource(R.string.done_delete), stringResource(R.string.done_delete_note), onDelete)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+private fun MenuRow(label: String, note: String?, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(label, fontSize = 16.sp, color = Text1)
+        if (note != null) Text(note, fontSize = 12.sp, color = Text3)
+    }
+}

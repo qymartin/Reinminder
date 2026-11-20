@@ -2,7 +2,11 @@ package io.github.qymartin.reinminder
 
 import io.github.qymartin.reinminder.data.Event
 import io.github.qymartin.reinminder.data.Repeat
-import io.github.qymartin.reinminder.logic.completed
+import io.github.qymartin.reinminder.logic.advanced
+import io.github.qymartin.reinminder.logic.archived
+import io.github.qymartin.reinminder.logic.doneAndDeleted
+import io.github.qymartin.reinminder.logic.nextNag
+import io.github.qymartin.reinminder.logic.occurrenceRecord
 import io.github.qymartin.reinminder.logic.isOverdue
 import io.github.qymartin.reinminder.logic.nextSeriesDate
 import io.github.qymartin.reinminder.logic.occurrences
@@ -27,10 +31,16 @@ class EventLogicTest {
             listOf(LocalDateTime.of(2026, 11, 4, 17, 0), LocalDateTime.of(2026, 11, 5, 17, 0)),
             e.reminderMoments(),
         )
-        val next = e.completed(LocalDate.of(2026, 11, 5))
+        val day = LocalDate.of(2026, 11, 5)
+        val next = e.advanced(day)
         assertEquals(LocalDate.of(2027, 11, 5), next.date)
-        assertEquals(LocalDate.of(2026, 11, 5), next.lastDoneOn)
         assertFalse(next.done)
+        val record = e.occurrenceRecord(99, day)
+        assertEquals(99L, record.id)
+        assertEquals(Repeat.NONE, record.repeat)
+        assertEquals(day, record.date)
+        assertTrue(record.done)
+        assertFalse(record.purge)
     }
 
     @Test fun allDayRemindersCountFromNine() {
@@ -52,7 +62,7 @@ class EventLogicTest {
 
     @Test fun completingOverdueDailyJumpsToToday() {
         val e = ev(LocalDate.of(2026, 11, 10), LocalTime.of(8, 0), Repeat.DAILY)
-        assertEquals(LocalDate.of(2026, 11, 18), e.completed(LocalDate.of(2026, 11, 18)).date)
+        assertEquals(LocalDate.of(2026, 11, 18), e.advanced(LocalDate.of(2026, 11, 18)).date)
     }
 
     @Test fun overdueAndPostpone() {
@@ -64,7 +74,7 @@ class EventLogicTest {
         assertFalse(moved.isOverdue(now))
         assertEquals(listOf(LocalDateTime.of(2026, 11, 19, 18, 0)), moved.reminderMoments())
         // Completing the postponed occurrence returns to the series: next is Dec 17.
-        assertEquals(LocalDate.of(2026, 12, 17), moved.completed(LocalDate.of(2026, 11, 19)).date)
+        assertEquals(LocalDate.of(2026, 12, 17), moved.advanced(LocalDate.of(2026, 11, 19)).date)
         val allDayToday = ev(LocalDate.of(2026, 11, 18), null)
         assertFalse(allDayToday.isOverdue(now))
     }
@@ -78,5 +88,35 @@ class EventLogicTest {
         val once = ev(LocalDate.of(2026, 11, 21), LocalTime.of(15, 0))
         assertEquals(listOf(LocalDate.of(2026, 11, 21)), once.occurrences(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30)))
         assertTrue(once.copy(done = true).occurrences(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30)).isEmpty())
+    }
+
+    @Test fun customIntervals() {
+        val everyTwoWeeks = ev(LocalDate.of(2026, 11, 6), LocalTime.of(9, 0), Repeat.WEEKLY).copy(interval = 2)
+        assertEquals(
+            listOf(6, 20).map { LocalDate.of(2026, 11, it) },
+            everyTwoWeeks.occurrences(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30)),
+        )
+        assertEquals(LocalDate.of(2026, 11, 20), everyTwoWeeks.advanced(LocalDate.of(2026, 11, 6)).date)
+        val everyThreeMonths = ev(LocalDate.of(2026, 1, 31), null, Repeat.MONTHLY).copy(interval = 3)
+        assertEquals(LocalDate.of(2026, 4, 30), everyThreeMonths.advanced(LocalDate.of(2026, 1, 31)).date)
+    }
+
+    @Test fun archiveAndDelete() {
+        val today = LocalDate.of(2026, 11, 19)
+        val e = ev(today, LocalTime.of(15, 0))
+        val kept = e.archived(today)
+        assertTrue(kept.done); assertFalse(kept.purge); assertEquals(today, kept.lastDoneOn)
+        val gone = e.doneAndDeleted(today)
+        assertTrue(gone.done); assertTrue(gone.purge)
+        assertTrue(kept.reminderMoments().isEmpty())
+    }
+
+    @Test fun alarmStyleRepeatsEveryTenMinutes() {
+        val e = ev(LocalDate.of(2026, 11, 19), LocalTime.of(15, 0)).copy(alarmStyle = true)
+        assertEquals(LocalDateTime.of(2026, 11, 19, 15, 0), e.nextNag(LocalDateTime.of(2026, 11, 19, 14, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 19, 15, 10), e.nextNag(LocalDateTime.of(2026, 11, 19, 15, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 19, 15, 30), e.nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
+        assertEquals(null, e.copy(alarmStyle = false).nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
+        assertEquals(null, e.archived(LocalDate.of(2026, 11, 19)).nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
     }
 }

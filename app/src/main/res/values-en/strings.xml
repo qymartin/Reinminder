@@ -8,7 +8,7 @@
     <string name="pick_event">Pick an event on the left to see it here</string>
     <string name="overdue">Overdue</string>
     <string name="overdue_n">Overdue · %1$d</string>
-    <string name="swipe_hint">Swipe right: done · left: postpone</string>
+    <string name="swipe_hint">Swipe left to postpone</string>
     <string name="postpone_tomorrow">Postpone to tomorrow</string>
     <string name="nothing_today">Nothing today. Tap + to add an event.</string>
     <string name="coming_up">Coming up</string>
@@ -33,7 +33,7 @@
     <string name="reminders">Reminders</string>
     <string name="no_reminders">No reminders</string>
     <string name="alarm_style">Alarm-style reminder</string>
-    <string name="alarm_style_note">Full screen and rings until you turn it off</string>
+    <string name="alarm_style_note">After the event time, reminds you every 10 minutes until it is done or moved</string>
     <string name="notes">Notes</string>
     <string name="delete">Delete</string>
     <string name="delete_title">Delete event?</string>
@@ -47,8 +47,6 @@
     <string name="language_title">语言 · Language</string>
     <string name="test_title">Test reminder</string>
     <string name="test_text">Reminders can reach you</string>
-    <string name="snooze">Snooze</string>
-    <string name="minutes_n">%1$d min</string>
     <string name="backup_title">Backup</string>
     <string name="backup_note">A backup file is the only copy of your data outside the app, so keep it somewhere you trust. Import it on a new phone to restore.</string>
     <string name="encrypt_backup">Encrypt backup file</string>
@@ -72,10 +70,7 @@
     <string name="import_title">Import backup?</string>
     <string name="import_text">Your %1$d events will be replaced by the %2$d in the backup.</string>
     <string name="channel_reminders">Reminders</string>
-    <string name="channel_alarms">Alarm-style reminders</string>
-    <string name="action_done">Done</string>
     <string name="action_snooze">In %1$d min</string>
-    <string name="stop_ringing">Stop ringing</string>
     <string name="untitled">(Untitled)</string>
     <string name="content">Content</string>
     <string name="content_hint">e.g. Checkup (or “Fri 3pm checkup #health”)</string>
@@ -97,4 +92,26 @@
     <string name="delete_topic">Delete “%1$s”</string>
     <string name="delete_topic_text">The topic is deleted. Its events stay, without a topic.</string>
     <string name="no_topics">No topics yet</string>
+    <string name="done_once">Done this time</string>
+    <string name="done_once_note">This one goes to Completed; the next one stays</string>
+    <string name="done_archive">Done and keep</string>
+    <string name="done_archive_note">Kept under Completed; you can restore it</string>
+    <string name="done_delete">Done and delete</string>
+    <string name="done_delete_note">Struck through today, deleted at midnight</string>
+    <string name="deleted_at_midnight">Deleted at midnight</string>
+    <string name="completed_n">Completed · %1$d</string>
+    <string name="collapse">Collapse</string>
+    <string name="expand">Expand</string>
+    <string name="restore">Restore</string>
+    <string name="every">Every</string>
+    <string name="unit_day">days</string>
+    <string name="unit_week">weeks</string>
+    <string name="unit_month">months</string>
+    <string name="reminds_on_time">Reminds you on time: %1$s</string>
+    <string name="action_archive">Done, keep</string>
+    <string name="action_delete_done">Done, delete</string>
+    <string name="action_done_once">Done this time</string>
+    <string name="view_done">Completed</string>
+    <string name="nothing_completed">Nothing completed yet</string>
+    <string name="done_on">Done %1$s</string>
 </resources>
