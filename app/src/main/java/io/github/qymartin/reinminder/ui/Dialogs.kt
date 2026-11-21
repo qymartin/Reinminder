@@ -151,3 +151,42 @@ private fun MenuRow(label: String, note: String?, onClick: () -> Unit) {
         if (note != null) Text(note, fontSize = 12.sp, color = Text3)
     }
 }
+
+/**
+ * The tick menu for [e], then — if it has open subtasks — a confirmation that they will be completed too.
+ * [archive] lets Today show the tick for a moment before the task moves to 已完成.
+ */
+@Composable
+fun CompleteFlow(e: io.github.qymartin.reinminder.data.Event, onClose: () -> Unit, archive: ((Long) -> Unit)? = null) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var pending by remember(e.id) { mutableStateOf<String?>(null) }
+    val open = remember(e.id) { io.github.qymartin.reinminder.alarm.Repo.openSubtasks(ctx, e.id) }
+    fun run(choice: String) {
+        onClose()
+        val a = archive
+        when {
+            choice != "archive" -> io.github.qymartin.reinminder.alarm.Repo.completeAndDelete(ctx, e.id)
+            a != null -> a(e.id)
+            else -> io.github.qymartin.reinminder.alarm.Repo.archive(ctx, e.id)
+        }
+    }
+    val choice = pending
+    if (choice == null) {
+        CompleteDialog(
+            title = e.title,
+            repeating = e.repeat != io.github.qymartin.reinminder.data.Repeat.NONE,
+            onDismiss = onClose,
+            onPostpone = { onClose(); io.github.qymartin.reinminder.alarm.Repo.postponeToTomorrow(ctx, e.id) },
+            onArchive = { if (open.isEmpty()) run("archive") else pending = "archive" },
+            onDelete = { if (open.isEmpty()) run("delete") else pending = "delete" },
+        )
+    } else {
+        ConfirmDialog(
+            title = stringResource(R.string.complete_subtasks_title),
+            text = stringResource(R.string.complete_subtasks_text, open.size) + "\n" + open.joinToString("\n") { "· " + it.title },
+            confirm = stringResource(R.string.ok),
+            onDismiss = onClose,
+            onConfirm = { run(choice) },
+        )
+    }
+}

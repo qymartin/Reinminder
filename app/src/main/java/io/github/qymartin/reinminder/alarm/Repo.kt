@@ -38,11 +38,20 @@ object Repo {
         Alarms.rescheduleAll(c)
     }
 
+    /** Subtasks of [id] that are still to do. */
+    fun openSubtasks(c: Context, id: Long): List<Event> = store(c).all().filter { it.parentId == id && !it.done }
+
     /**
      * "完成并存档". A repeating event completes only this occurrence: a completed copy goes to 已完成
-     * and the series moves to its next date.
+     * and the series moves to its next date. Open subtasks are completed (archived) with it.
      */
     fun archive(c: Context, id: Long) {
+        openSubtasks(c, id).forEach { archiveOne(c, it.id) }
+        archiveOne(c, id)
+        Alarms.rescheduleAll(c)
+    }
+
+    private fun archiveOne(c: Context, id: Long) {
         val today = LocalDate.now()
         val e = store(c).get(id) ?: return
         if (e.repeat == Repeat.NONE) {
@@ -51,15 +60,26 @@ object Repo {
             store(c).upsert(e.occurrenceRecord(store(c).newId(), today))
             store(c).upsert(e.advanced(today))
         }
-        after(c, id)
+        Alarms.cancelSnooze(c, id)
+        Notifier.cancel(c, id)
     }
 
-    /** "完成并删除": struck through today, deleted after midnight. Repeating events: same as [archive]. */
+    /**
+     * "完成并删除": struck through today, deleted after midnight, with its open subtasks.
+     * Repeating events (and repeating subtasks) are completed as in [archive].
+     */
     fun completeAndDelete(c: Context, id: Long) {
-        val e = store(c).get(id) ?: return
-        if (e.repeat != Repeat.NONE) return archive(c, id)
-        store(c).upsert(e.doneAndDeleted(LocalDate.now()))
-        after(c, id)
+        val today = LocalDate.now()
+        (openSubtasks(c, id).map { it.id } + id).forEach { i ->
+            val e = store(c).get(i) ?: return@forEach
+            if (e.repeat != Repeat.NONE) archiveOne(c, i)
+            else {
+                store(c).upsert(e.doneAndDeleted(today))
+                Alarms.cancelSnooze(c, i)
+                Notifier.cancel(c, i)
+            }
+        }
+        Alarms.rescheduleAll(c)
     }
 
     /** Back to a to-do: from 已完成, or undoing "完成并删除" the same day. */

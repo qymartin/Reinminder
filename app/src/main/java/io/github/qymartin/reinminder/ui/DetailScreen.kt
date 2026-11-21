@@ -190,14 +190,7 @@ fun DetailScreen(
     }
 
     if (showComplete) {
-        CompleteDialog(
-            title = e.title,
-            repeating = e.repeat != Repeat.NONE,
-            onDismiss = { showComplete = false },
-            onPostpone = { showComplete = false; Repo.postponeToTomorrow(ctx, e.id) },
-            onArchive = { showComplete = false; Repo.archive(ctx, e.id) },
-            onDelete = { showComplete = false; Repo.completeAndDelete(ctx, e.id) },
-        )
+        CompleteFlow(e, onClose = { showComplete = false })
     }
 
     if (confirmDelete) {

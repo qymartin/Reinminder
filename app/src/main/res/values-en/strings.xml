@@ -119,4 +119,6 @@
     <string name="new_subtask">New subtask</string>
     <string name="delete_subtasks_too">Its %1$d subtasks will be deleted too.</string>
     <string name="all_topics">All topics</string>
+    <string name="complete_subtasks_title">Complete its subtasks too?</string>
+    <string name="complete_subtasks_text">This task has %1$d open subtasks. They will be completed too:</string>
 </resources>

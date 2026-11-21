@@ -141,6 +141,7 @@ fun EventLine(
     important: Boolean = false,
     strike: Boolean = done,
     parent: String? = null,
+    checkEnabled: Boolean = true,
 ) {
     Row(
         Modifier
@@ -152,7 +153,7 @@ fun EventLine(
             .padding(end = 14.dp, start = if (onCheck == null) 14.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (onCheck != null) CheckCircle(done, ringColor, checkLabel, onCheck)
+        if (onCheck != null) CheckCircle(done, if (checkEnabled) ringColor else DividerColor, checkLabel, onCheck, enabled = checkEnabled)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             TitleText(title, important, muted = done, strike = strike, parent = parent)
             if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3, maxLines = 2, overflow = TextOverflow.Ellipsis)

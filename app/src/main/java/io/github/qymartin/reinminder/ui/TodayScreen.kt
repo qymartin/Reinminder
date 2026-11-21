@@ -79,7 +79,6 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
     val upcoming = events
         .flatMap { e -> e.occurrences(tomorrow, today.plusDays(7)).map { d -> e to d } }
         .sortedWith(compareBy<Pair<Event, LocalDate>>({ it.second.toEpochDay() }, { !it.first.important }, { it.first.time }, { it.first.id }))
-        .take(6)
 
     archiving.forEach { id ->
         key(id) {
@@ -103,12 +102,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
 
         if (overdue.isNotEmpty()) item {
             SectionCard(background = AmberBg, border = AmberBorder, padding = 4, spacing = 0) {
-                Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(R.string.overdue_n, overdue.size),
-                        fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Amber, modifier = Modifier.weight(1f),
-                    )
-                }
+                SectionHeader(stringResource(R.string.overdue_n, overdue.size), Amber)
                 overdue.forEachIndexed { i, e ->
                     if (i > 0) RowDivider()
                     EventLine(
@@ -179,34 +173,30 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
             }
         }
 
-        if (upcoming.isNotEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.coming_up), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Text1,
-                    modifier = Modifier.padding(start = 2.dp, top = 4.dp),
-                )
-            }
-            item {
-                SectionCard(padding = 4, spacing = 0) {
-                    upcoming.forEachIndexed { i, (e, d) ->
-                        if (i > 0) RowDivider()
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(e.id) }
-                                .heightIn(min = 60.dp).padding(horizontal = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.width(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(Fmt.weekday(d, en), fontSize = 12.sp, color = Text3)
-                                Text("${d.dayOfMonth}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Text1)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                TitleText(e.title, e.important, fontSize = 15, parent = titles.parentOf(e))
-                                val t = if (d == e.shownDate()) e.shownTime() else e.time
-                                Text(Fmt.meta(e, en, t?.let { Fmt.time(it, en) }, topics.nameOf(e.topic)), fontSize = 13.sp, color = Text3)
-                            }
-                        }
-                    }
+        if (upcoming.isNotEmpty()) item {
+            SectionCard(padding = 4, spacing = 0) {
+                SectionHeader(stringResource(R.string.coming_up), Text2)
+                upcoming.forEachIndexed { i, (e, d) ->
+                    if (i > 0) RowDivider()
+                    val current = d == e.shownDate()
+                    val t = if (current) e.shownTime() else e.time
+                    EventLine(
+                        title = e.title,
+                        meta = Fmt.meta(e, en, Fmt.day(d, today, en), topics.nameOf(e.topic)),
+                        time = Fmt.timeOrAllDay(t, en),
+                        done = e.id in archiving && current,
+                        strike = false,
+                        ringColor = Muted,
+                        timeColor = Color(0xFFC9CDD6),
+                        checkLabel = stringResource(R.string.mark_done) + " " + e.title,
+                        // A later date of a repeating task can't be ticked before its current one.
+                        onCheck = { if (current) menuFor = e },
+                        checkEnabled = current,
+                        onClick = { onOpen(e.id) },
+                        selected = e.id == selectedId,
+                        important = e.important,
+                        parent = titles.parentOf(e),
+                    )
                 }
             }
         }
@@ -221,7 +211,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                 ) {
                     Text(
                         stringResource(R.string.completed_n, archived.size),
-                        fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Text2, modifier = Modifier.weight(1f),
+                        fontSize = HEADER_SP.sp, fontWeight = FontWeight.Bold, color = Text2, modifier = Modifier.weight(1f),
                     )
                     Icon(
                         if (showDone) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -253,13 +243,17 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
     }
 
     menuFor?.let { e ->
-        CompleteDialog(
-            title = e.title,
-            repeating = e.repeat != Repeat.NONE,
-            onDismiss = { menuFor = null },
-            onPostpone = { menuFor = null; Repo.postponeToTomorrow(ctx, e.id) },
-            onArchive = { menuFor = null; archiving = archiving + e.id },
-            onDelete = { menuFor = null; Repo.completeAndDelete(ctx, e.id) },
-        )
+        CompleteFlow(e, onClose = { menuFor = null }, archive = { id -> archiving = archiving + id })
     }
+}
+
+private const val HEADER_SP = 15
+
+/** Same header for 已过期 / 即将到来 / 已完成, so the sections read alike. */
+@Composable
+private fun SectionHeader(text: String, color: Color) {
+    Text(
+        text, fontSize = HEADER_SP.sp, fontWeight = FontWeight.Bold, color = color,
+        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp),
+    )
 }

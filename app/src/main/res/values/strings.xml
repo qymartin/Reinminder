@@ -120,4 +120,6 @@
     <string name="new_subtask">新建子任务</string>
     <string name="delete_subtasks_too">它的 %1$d 个子任务也会一起删除。</string>
     <string name="all_topics">全部主题</string>
+    <string name="complete_subtasks_title">同时完成子任务？</string>
+    <string name="complete_subtasks_text">这个任务还有 %1$d 个未完成的子任务，会一起完成：</string>
 </resources>
