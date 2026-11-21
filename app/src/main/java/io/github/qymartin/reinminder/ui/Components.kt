@@ -123,7 +123,7 @@ fun CheckCircle(done: Boolean, ringColor: Color, contentDescription: String, onC
 }
 
 /**
- * One event line: tick box, title + subtitle, time on the right.
+ * One event line, sized like the Schedule list (title 15sp, details 13sp, time 14sp): tick box, title + subtitle, time on the right.
  * [timeColor] highlights overdue/soon items.
  */
 @Composable
@@ -149,23 +149,23 @@ fun EventLine(
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) TonalBg else Color.Transparent)
             .clickable(role = Role.Button, onClick = onClick)
-            .heightIn(min = 64.dp)
+            .heightIn(min = 58.dp)
             .padding(end = 14.dp, start = if (onCheck == null) 14.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onCheck != null) CheckCircle(done, if (checkEnabled) ringColor else DividerColor, checkLabel, onCheck, enabled = checkEnabled)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            TitleText(title, important, muted = done, strike = strike, parent = parent)
+            TitleText(title, important, muted = done, strike = strike, fontSize = 15, parent = parent)
             if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
-        Text(time, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (done) Muted else timeColor)
+        Text(time, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (done) Muted else timeColor)
     }
 }
 
 /** Event title; important events get an amber star in front. */
 @Composable
-fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 16, parent: String? = null) {
+fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 15, parent: String? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (important) {
             Icon(
