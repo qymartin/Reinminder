@@ -169,7 +169,9 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                         val doneOn = e.lastDoneOn
                         EventLine(
                             title = e.title,
-                            meta = Fmt.meta(e.copy(reminders = emptyList()), en, Fmt.day(e.shownDate(), today, en), topics.nameOf(e.topic)),
+                            meta = Fmt.day(e.shownDate(), today, en),
+                            topic = topics.nameOf(e.topic),
+                            tail = Fmt.metaTail(e, en),
                             time = if (doneOn != null) stringResource(R.string.done_on, Fmt.monthDay(doneOn, en)) else "",
                             done = true,
                             strike = false,
@@ -313,8 +315,7 @@ private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Lon
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     TitleText(o.event.title, o.event.important, fontSize = 15, parent = LocalTitles.current.parentOf(o.event))
-                    val meta = Fmt.meta(o.event, en, topic = LocalTopics.current.nameOf(o.event.topic))
-                    if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3)
+                    MetaLine(null, LocalTopics.current.nameOf(o.event.topic), Fmt.metaTail(o.event, en))
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(Fmt.timeOrAllDay(timeOf(o), en), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFFC9CDD6))

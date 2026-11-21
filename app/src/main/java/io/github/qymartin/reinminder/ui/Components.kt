@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -129,6 +131,7 @@ fun CheckCircle(done: Boolean, ringColor: Color, contentDescription: String, onC
 @Composable
 fun EventLine(
     title: String,
+    /** Text before the topic, usually the date. */
     meta: String,
     time: String,
     done: Boolean,
@@ -142,6 +145,9 @@ fun EventLine(
     strike: Boolean = done,
     parent: String? = null,
     checkEnabled: Boolean = true,
+    topic: String? = null,
+    /** Text after the topic: repeat, "已推迟". */
+    tail: String? = null,
 ) {
     Row(
         Modifier
@@ -156,7 +162,7 @@ fun EventLine(
         if (onCheck != null) CheckCircle(done, if (checkEnabled) ringColor else DividerColor, checkLabel, onCheck, enabled = checkEnabled)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             TitleText(title, important, muted = done, strike = strike, fontSize = 15, parent = parent)
-            if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            MetaLine(meta, topic, tail, muted = done)
         }
         Spacer(Modifier.width(8.dp))
         Text(time, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (done) Muted else timeColor)
@@ -189,6 +195,39 @@ fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike:
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 140.dp),
             )
+        }
+    }
+}
+
+/** A topic name in light blue with a thin border, so it stands apart from the date. */
+@Composable
+fun TopicBadge(name: String, muted: Boolean = false, fontSize: Int = 12) {
+    val c = if (muted) Muted else Accent
+    Text(
+        name, fontSize = fontSize.sp, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .border(1.dp, c.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+    )
+}
+
+/** A row's subtitle: date · [topic] · repeat. Wraps onto a second line when long. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MetaLine(head: String?, topic: String?, tail: String?, muted: Boolean = false, fontSize: Int = 13) {
+    val h = head?.takeIf { it.isNotEmpty() }
+    val t = tail?.takeIf { it.isNotEmpty() }
+    if (h == null && topic == null && t == null) return
+    FlowRow(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val center = Modifier.align(Alignment.CenterVertically)
+        if (h != null) Text(h, fontSize = fontSize.sp, color = Text3, modifier = center)
+        if (topic != null) {
+            if (h != null) Text(" · ", fontSize = fontSize.sp, color = Text3, modifier = center)
+            Box(center) { TopicBadge(topic, muted, fontSize - 1) }
+        }
+        if (t != null) {
+            if (h != null || topic != null) Text(" · ", fontSize = fontSize.sp, color = Text3, modifier = center)
+            Text(t, fontSize = fontSize.sp, color = Text3, modifier = center)
         }
     }
 }

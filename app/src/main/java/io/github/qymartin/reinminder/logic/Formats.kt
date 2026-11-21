@@ -153,16 +153,15 @@ object Fmt {
         if (en) "${listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")[ym.monthValue - 1]} ${ym.year}"
         else "${ym.year}年${ym.monthValue}月"
 
-    /** Subtitle of a row: "健康 · 每年 · 提前 1 小时". */
-    fun meta(e: Event, en: Boolean, extra: String? = null, topic: String? = null): String {
+    /**
+     * The part of a row's subtitle after the topic: repeat, or "已推迟". Reminders are not shown.
+     * Lists show: date · [topic] · this.
+     */
+    fun metaTail(e: Event, en: Boolean): String? {
         val parts = buildList {
-            extra?.let { add(it) }
-            topic?.let { add(it) }
             repeatShort(e.repeat, en, e.interval)?.let { add(it) }
-            // "At time" is the default, so only earlier reminders are worth showing.
-            if (e.postponedTo == null) reminders(e.reminders.filter { it != 0 }, e.time == null, en)?.let { add(it) }
-            else add(if (en) "Postponed" else "已推迟")
+            if (e.postponedTo != null) add(if (en) "Postponed" else "已推迟")
         }
-        return parts.joinToString(" · ")
+        return parts.joinToString(" · ").ifEmpty { null }
     }
 }

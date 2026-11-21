@@ -107,7 +107,9 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                     if (i > 0) RowDivider()
                     EventLine(
                         title = e.title,
-                        meta = Fmt.meta(e, en, Fmt.day(e.shownDate(), today, en), topics.nameOf(e.topic)),
+                        meta = Fmt.day(e.shownDate(), today, en),
+                            topic = topics.nameOf(e.topic),
+                            tail = Fmt.metaTail(e, en),
                         time = Fmt.timeOrAllDay(e.shownTime(), en),
                         done = e.id in archiving,
                         strike = false,
@@ -138,7 +140,9 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                     val soon = time != null && Duration.between(now, today.atTime(time)).toMinutes() in 0..60
                     EventLine(
                         title = e.title,
-                        meta = Fmt.meta(e, en, topic = topics.nameOf(e.topic)),
+                        meta = "",
+                            topic = topics.nameOf(e.topic),
+                            tail = Fmt.metaTail(e, en),
                         time = Fmt.timeOrAllDay(time, en),
                         done = e.id in archiving,
                         strike = false,
@@ -182,7 +186,9 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                     val t = if (current) e.shownTime() else e.time
                     EventLine(
                         title = e.title,
-                        meta = Fmt.meta(e, en, Fmt.day(d, today, en), topics.nameOf(e.topic)),
+                        meta = Fmt.day(d, today, en),
+                        topic = topics.nameOf(e.topic),
+                        tail = Fmt.metaTail(e, en),
                         time = Fmt.timeOrAllDay(t, en),
                         done = e.id in archiving && current,
                         strike = false,
@@ -223,7 +229,9 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                     RowDivider()
                     EventLine(
                         title = e.title,
-                        meta = Fmt.meta(e.copy(reminders = emptyList()), en, Fmt.day(e.shownDate(), today, en), topics.nameOf(e.topic)),
+                        meta = Fmt.day(e.shownDate(), today, en),
+                        topic = topics.nameOf(e.topic),
+                        tail = Fmt.metaTail(e, en),
                         time = e.lastDoneOn?.let { stringResource(R.string.done_on, Fmt.day(it, today, en)) } ?: "",
                         done = true,
                         strike = false,

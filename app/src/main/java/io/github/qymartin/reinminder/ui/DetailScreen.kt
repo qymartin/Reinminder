@@ -1,6 +1,7 @@
 package io.github.qymartin.reinminder.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import io.github.qymartin.reinminder.logic.eventOrder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -90,7 +91,7 @@ fun DetailScreen(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LocalTopics.current.nameOf(e.topic)?.let { Chip(it) }
+                    LocalTopics.current.nameOf(e.topic)?.let { Box(Modifier.align(Alignment.CenterVertically)) { TopicBadge(it, fontSize = 13) } }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
                     if (doneNow) Chip(stringResource(if (e.purge) R.string.deleted_at_midnight else R.string.done_label))
                     if (e.isOverdue(now)) Chip(stringResource(R.string.overdue), color = Amber, background = AmberBg, border = AmberBorder)
@@ -149,7 +150,7 @@ fun DetailScreen(
                         ) {
                             Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 TitleText(sub.title, sub.important, muted = sub.done, strike = sub.done && sub.purge, fontSize = 15)
-                                Text(Fmt.meta(sub, en, Fmt.day(sub.shownDate(), today, en), topics.nameOf(sub.topic)), fontSize = 12.sp, color = Text3)
+                                MetaLine(Fmt.day(sub.shownDate(), today, en), topics.nameOf(sub.topic), Fmt.metaTail(sub, en), muted = sub.done, fontSize = 12)
                             }
                             Text(Fmt.timeOrAllDay(sub.shownTime(), en), fontSize = 14.sp, color = if (sub.done) Muted else Text2)
                         }
