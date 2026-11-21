@@ -7,6 +7,7 @@ import io.github.qymartin.reinminder.logic.archived
 import io.github.qymartin.reinminder.logic.doneAndDeleted
 import io.github.qymartin.reinminder.logic.nextNag
 import io.github.qymartin.reinminder.logic.occurrenceRecord
+import io.github.qymartin.reinminder.logic.pinnedAt
 import io.github.qymartin.reinminder.logic.isOverdue
 import io.github.qymartin.reinminder.logic.nextSeriesDate
 import io.github.qymartin.reinminder.logic.occurrences
@@ -118,5 +119,17 @@ class EventLogicTest {
         assertEquals(LocalDateTime.of(2026, 11, 19, 15, 30), e.nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
         assertEquals(null, e.copy(alarmStyle = false).nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
         assertEquals(null, e.archived(LocalDate.of(2026, 11, 19)).nextNag(LocalDateTime.of(2026, 11, 19, 15, 23)))
+    }
+
+    @Test fun pinnedWhenImportantAndDue() {
+        val e = ev(LocalDate.of(2026, 11, 21), LocalTime.of(13, 0)).copy(important = true)
+        assertFalse(e.pinnedAt(LocalDateTime.of(2026, 11, 21, 12, 59)))
+        assertTrue(e.pinnedAt(LocalDateTime.of(2026, 11, 21, 13, 0)))
+        assertTrue(e.pinnedAt(LocalDateTime.of(2026, 11, 25, 9, 0)))
+        assertFalse(e.copy(important = false).pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))
+        assertFalse(e.archived(LocalDate.of(2026, 11, 21)).pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))
+        // Postponed to tomorrow: unpinned until then.
+        val moved = e.copy(postponedTo = LocalDateTime.of(2026, 11, 22, 13, 0))
+        assertFalse(moved.pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))
     }
 }

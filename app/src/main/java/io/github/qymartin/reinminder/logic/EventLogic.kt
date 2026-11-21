@@ -107,6 +107,12 @@ fun Event.nextNag(now: LocalDateTime): LocalDateTime? {
 
 const val NAG_MINUTES = 10L
 
+/**
+ * Important and its time has come (overdue or happening now), not yet done: kept as a pinned
+ * notification that "clear all" can't remove, until it is completed or moved later.
+ */
+fun Event.pinnedAt(now: LocalDateTime): Boolean = important && !done && !moment().isAfter(now)
+
 fun Event.postponed(to: LocalDateTime): Event = copy(postponedTo = to, done = false)
 
 /** Postpone to the same time tomorrow (all-day events: tomorrow at 09:00). */

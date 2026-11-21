@@ -19,6 +19,9 @@ Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminde
   Alarm-style = after the event time, a normal reminder every 10 minutes until done or moved (`nextNag`).
 - Subtasks (1.3): `Event.parentId`, one level only. Deleting a task deletes its subtasks (`Repo.delete`).
   1.4: long-press a row and drop it on another to nest it (`ui/NestDrag.kt`, `Repo.makeSubtask`).
+- Pinned (1.5): important + not done + time reached (`pinnedAt`) -> an ongoing notification per task (same id as
+  its reminder), kept in sync by `Notifier.syncPinned` from `Alarms.rescheduleAll`; a silent "pin" alarm at the event
+  time; swiping it away (Android 14+) re-pins it via the delete intent.
 - List rows show title · [topic badge] · time, plus the date where the section doesn't give it. No repeat or
   reminder text in lists; those are on the task's page.
 

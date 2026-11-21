@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Prefs
+import io.github.qymartin.reinminder.logic.moment
 import io.github.qymartin.reinminder.logic.nextNag
 import io.github.qymartin.reinminder.logic.reminderMoments
 import java.time.LocalDate
@@ -22,15 +23,18 @@ object Alarms {
     const val EXTRA_ID = "eventId"
     private const val ACTION_REMIND = "io.github.qymartin.reinminder.REMIND"
 
-    private fun intent(context: Context, key: String, id: Long) =
+    const val EXTRA_PIN = "pinOnly"
+
+    private fun intent(context: Context, key: String, id: Long, pinOnly: Boolean) =
         Intent(context, ReminderReceiver::class.java).apply {
             action = ACTION_REMIND
             data = Uri.parse("reinminder://reminder/$key")
             putExtra(EXTRA_ID, id)
+            putExtra(EXTRA_PIN, pinOnly)
         }
 
-    private fun pending(context: Context, key: String, id: Long, flags: Int): PendingIntent? =
-        PendingIntent.getBroadcast(context, key.hashCode(), intent(context, key, id), flags or PendingIntent.FLAG_IMMUTABLE)
+    private fun pending(context: Context, key: String, id: Long, flags: Int, pinOnly: Boolean = false): PendingIntent? =
+        PendingIntent.getBroadcast(context, key.hashCode(), intent(context, key, id, pinOnly), flags or PendingIntent.FLAG_IMMUTABLE)
 
     fun canExact(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true
@@ -70,9 +74,19 @@ object Alarms {
                     keys += key
                 }
             }
+            // Important: pin it to the lock screen when its time comes, even if its only reminder was earlier.
+            val at = e.moment()
+            if (e.important && at.isAfter(now) && at !in moments && at != nag) {
+                val key = "${e.id}/pin"
+                pending(ctx, key, e.id, PendingIntent.FLAG_UPDATE_CURRENT, pinOnly = true)?.let {
+                    set(ctx, am, at.atZone(zone).toInstant().toEpochMilli(), it)
+                    keys += key
+                }
+            }
         }
         prefs.scheduled = keys
         scheduleMidnight(ctx, am)
+        Notifier.syncPinned(ctx)
     }
 
     /** Wakes [BootReceiver] just after midnight, which clears yesterday's "完成并删除" events. */

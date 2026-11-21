@@ -12,6 +12,11 @@ class ReminderReceiver : BroadcastReceiver() {
         val id = intent.getLongExtra(Alarms.EXTRA_ID, -1)
         val e = EventStore.get(context).get(id) ?: return
         if (e.done) return
+        // An important task's time has come with no reminder at that moment: just pin it, silently.
+        if (intent.getBooleanExtra(Alarms.EXTRA_PIN, false)) {
+            Notifier.syncPinned(context)
+            return
+        }
         Notifier.show(context, e)
         // Alarm-style events need their next 10-minute reminder set.
         if (e.alarmStyle) Alarms.rescheduleAll(context)
@@ -26,6 +31,8 @@ class ActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_ARCHIVE -> Repo.archive(context, id)
             ACTION_DELETE_DONE -> Repo.completeAndDelete(context, id)
+            // A pinned notification was swiped away (possible on Android 14+ when unlocked): put it back.
+            ACTION_REPIN -> Notifier.syncPinned(context)
             ACTION_SNOOZE -> {
                 Notifier.cancel(context, id)
                 Alarms.snooze(context, id, Prefs(context).snoozeMinutes)
@@ -37,6 +44,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val ACTION_ARCHIVE = "io.github.qymartin.reinminder.ARCHIVE"
         const val ACTION_DELETE_DONE = "io.github.qymartin.reinminder.DELETE_DONE"
         const val ACTION_SNOOZE = "io.github.qymartin.reinminder.SNOOZE"
+        const val ACTION_REPIN = "io.github.qymartin.reinminder.REPIN"
     }
 }
 
