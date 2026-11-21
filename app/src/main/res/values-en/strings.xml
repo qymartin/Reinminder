@@ -121,8 +121,8 @@
     <string name="all_topics">All topics</string>
     <string name="complete_subtasks_title">Complete its subtasks too?</string>
     <string name="complete_subtasks_text">This task has %1$d open subtasks. They will be completed too:</string>
-    <string name="cannot_nest_subtask">A subtask can't have subtasks</string>
-    <string name="cannot_nest_parent">This task has its own subtasks, so it can't become a subtask</string>
+    <string name="cannot_nest_subtask">A subtask can\'t have subtasks</string>
+    <string name="cannot_nest_parent">This task has its own subtasks, so it can\'t become a subtask</string>
     <string name="nested_into">Now a subtask of “%1$s”</string>
     <string name="detach">Remove from main task</string>
 </resources>
