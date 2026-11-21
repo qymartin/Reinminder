@@ -107,6 +107,16 @@ object Repo {
         Alarms.rescheduleAll(c)
     }
 
+    /** Makes [childId] a subtask of [parentId] (dragging one task onto another). */
+    fun makeSubtask(c: Context, childId: Long, parentId: Long) {
+        store(c).update(childId) { it.copy(parentId = parentId) }
+    }
+
+    /** Turns a subtask back into a task of its own. */
+    fun detach(c: Context, id: Long) {
+        store(c).update(id) { it.copy(parentId = null) }
+    }
+
     /** Delete a topic; its events stay, without a topic. */
     fun deleteTopic(c: Context, id: String) {
         TopicStore.get(c).remove(id)

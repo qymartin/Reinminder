@@ -90,164 +90,171 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
         }
     }
 
-    LazyColumn(
-        modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            val sub = if (en) "${Fmt.date(today, true)} · $left left" else "${Fmt.date(today, false)} · 还剩 $left 项"
-            ScreenTitle(stringResource(R.string.tab_today), sub)
-        }
+    val drag = rememberNestDrag()
+    Box(modifier.fillMaxSize().nestDragArea(drag)) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                val sub = if (en) "${Fmt.date(today, true)} · $left left" else "${Fmt.date(today, false)} · 还剩 $left 项"
+                ScreenTitle(stringResource(R.string.tab_today), sub)
+            }
 
-        if (overdue.isNotEmpty()) item {
-            SectionCard(background = AmberBg, border = AmberBorder, padding = 4, spacing = 0) {
-                SectionHeader(stringResource(R.string.overdue_n, overdue.size), Amber)
-                overdue.forEachIndexed { i, e ->
-                    if (i > 0) RowDivider()
-                    EventLine(
-                        title = e.title,
-                        meta = Fmt.day(e.shownDate(), today, en),
+            if (overdue.isNotEmpty()) item {
+                SectionCard(background = AmberBg, border = AmberBorder, padding = 4, spacing = 0) {
+                    SectionHeader(stringResource(R.string.overdue_n, overdue.size), Amber)
+                    overdue.forEachIndexed { i, e ->
+                        if (i > 0) RowDivider()
+                        EventLine(
+                            modifier = Modifier.nestDrag(drag, "o${e.id}", e),
+                            title = e.title,
+                            meta = Fmt.day(e.shownDate(), today, en),
+                                topic = topics.nameOf(e.topic),
+                                tail = Fmt.metaTail(e, en),
+                            time = Fmt.timeOrAllDay(e.shownTime(), en),
+                            done = e.id in archiving,
+                            strike = false,
+                            ringColor = Amber,
+                            timeColor = Amber,
+                            checkLabel = stringResource(R.string.mark_done) + " " + e.title,
+                            onCheck = { menuFor = e },
+                            onClick = { onOpen(e.id) },
+                            selected = e.id == selectedId,
+                            important = e.important,
+                            parent = titles.parentOf(e),
+                        )
+                    }
+                }
+            }
+
+            item {
+                SectionCard(padding = 4, spacing = 0) {
+                    if (pending.isEmpty() && struck.isEmpty()) {
+                        Text(
+                            stringResource(R.string.nothing_today), fontSize = 14.sp, color = Text3,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp, horizontal = 14.dp),
+                        )
+                    }
+                    pending.forEachIndexed { i, e ->
+                        if (i > 0) RowDivider()
+                        val time = e.shownTime()
+                        val soon = time != null && Duration.between(now, today.atTime(time)).toMinutes() in 0..60
+                        EventLine(
+                            modifier = Modifier.nestDrag(drag, "p${e.id}", e),
+                            title = e.title,
+                            meta = "",
+                                topic = topics.nameOf(e.topic),
+                                tail = Fmt.metaTail(e, en),
+                            time = Fmt.timeOrAllDay(time, en),
+                            done = e.id in archiving,
+                            strike = false,
+                            ringColor = if (soon) Amber else Muted,
+                            timeColor = if (soon) Amber else Color(0xFFC9CDD6),
+                            checkLabel = stringResource(R.string.mark_done) + " " + e.title,
+                            onCheck = { menuFor = e },
+                            onClick = { onOpen(e.id) },
+                            selected = e.id == selectedId,
+                            important = e.important,
+                            parent = titles.parentOf(e),
+                        )
+                    }
+                    struck.forEachIndexed { i, e ->
+                        if (i > 0 || pending.isNotEmpty()) RowDivider()
+                        EventLine(
+                            title = e.title,
+                            meta = stringResource(R.string.deleted_at_midnight),
+                            time = Fmt.timeOrAllDay(e.lastDoneTime ?: e.shownTime(), en),
+                            done = true,
+                            strike = true,
+                            ringColor = Muted,
+                            timeColor = Muted,
+                            checkLabel = stringResource(R.string.undo_done) + " " + e.title,
+                            onCheck = { Repo.restore(ctx, e.id) },
+                            onClick = { onOpen(e.id) },
+                            selected = e.id == selectedId,
+                            important = e.important,
+                            parent = titles.parentOf(e),
+                        )
+                    }
+                }
+            }
+
+            if (upcoming.isNotEmpty()) item {
+                SectionCard(padding = 4, spacing = 0) {
+                    SectionHeader(stringResource(R.string.coming_up), Text2)
+                    upcoming.forEachIndexed { i, (e, d) ->
+                        if (i > 0) RowDivider()
+                        val current = d == e.shownDate()
+                        val t = if (current) e.shownTime() else e.time
+                        EventLine(
+                            modifier = Modifier.nestDrag(drag, "u${e.id}/$d", e),
+                            title = e.title,
+                            meta = Fmt.day(d, today, en),
                             topic = topics.nameOf(e.topic),
                             tail = Fmt.metaTail(e, en),
-                        time = Fmt.timeOrAllDay(e.shownTime(), en),
-                        done = e.id in archiving,
-                        strike = false,
-                        ringColor = Amber,
-                        timeColor = Amber,
-                        checkLabel = stringResource(R.string.mark_done) + " " + e.title,
-                        onCheck = { menuFor = e },
-                        onClick = { onOpen(e.id) },
-                        selected = e.id == selectedId,
-                        important = e.important,
-                        parent = titles.parentOf(e),
-                    )
+                            time = Fmt.timeOrAllDay(t, en),
+                            done = e.id in archiving && current,
+                            strike = false,
+                            ringColor = Muted,
+                            timeColor = Color(0xFFC9CDD6),
+                            checkLabel = stringResource(R.string.mark_done) + " " + e.title,
+                            // A later date of a repeating task can't be ticked before its current one.
+                            onCheck = { if (current) menuFor = e },
+                            checkEnabled = current,
+                            onClick = { onOpen(e.id) },
+                            selected = e.id == selectedId,
+                            important = e.important,
+                            parent = titles.parentOf(e),
+                        )
+                    }
                 }
             }
-        }
 
-        item {
-            SectionCard(padding = 4, spacing = 0) {
-                if (pending.isEmpty() && struck.isEmpty()) {
-                    Text(
-                        stringResource(R.string.nothing_today), fontSize = 14.sp, color = Text3,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp, horizontal = 14.dp),
-                    )
-                }
-                pending.forEachIndexed { i, e ->
-                    if (i > 0) RowDivider()
-                    val time = e.shownTime()
-                    val soon = time != null && Duration.between(now, today.atTime(time)).toMinutes() in 0..60
-                    EventLine(
-                        title = e.title,
-                        meta = "",
+            // 已完成 (all archived), folded by default.
+            if (archived.isNotEmpty()) item {
+                SectionCard(padding = 4, spacing = 0) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showDone = !showDone }
+                            .heightIn(min = 52.dp).padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.completed_n, archived.size),
+                            fontSize = HEADER_SP.sp, fontWeight = FontWeight.Bold, color = Text2, modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            if (showDone) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = stringResource(if (showDone) R.string.collapse else R.string.expand),
+                            tint = Text2,
+                        )
+                    }
+                    if (showDone) archived.forEach { e ->
+                        RowDivider()
+                        EventLine(
+                            title = e.title,
+                            meta = Fmt.day(e.shownDate(), today, en),
                             topic = topics.nameOf(e.topic),
                             tail = Fmt.metaTail(e, en),
-                        time = Fmt.timeOrAllDay(time, en),
-                        done = e.id in archiving,
-                        strike = false,
-                        ringColor = if (soon) Amber else Muted,
-                        timeColor = if (soon) Amber else Color(0xFFC9CDD6),
-                        checkLabel = stringResource(R.string.mark_done) + " " + e.title,
-                        onCheck = { menuFor = e },
-                        onClick = { onOpen(e.id) },
-                        selected = e.id == selectedId,
-                        important = e.important,
-                        parent = titles.parentOf(e),
-                    )
-                }
-                struck.forEachIndexed { i, e ->
-                    if (i > 0 || pending.isNotEmpty()) RowDivider()
-                    EventLine(
-                        title = e.title,
-                        meta = stringResource(R.string.deleted_at_midnight),
-                        time = Fmt.timeOrAllDay(e.lastDoneTime ?: e.shownTime(), en),
-                        done = true,
-                        strike = true,
-                        ringColor = Muted,
-                        timeColor = Muted,
-                        checkLabel = stringResource(R.string.undo_done) + " " + e.title,
-                        onCheck = { Repo.restore(ctx, e.id) },
-                        onClick = { onOpen(e.id) },
-                        selected = e.id == selectedId,
-                        important = e.important,
-                        parent = titles.parentOf(e),
-                    )
+                            time = e.lastDoneOn?.let { stringResource(R.string.done_on, Fmt.day(it, today, en)) } ?: "",
+                            done = true,
+                            strike = false,
+                            ringColor = Muted,
+                            timeColor = Muted,
+                            checkLabel = stringResource(R.string.restore) + " " + e.title,
+                            onCheck = { Repo.restore(ctx, e.id) },
+                            onClick = { onOpen(e.id) },
+                            selected = e.id == selectedId,
+                            important = e.important,
+                            parent = titles.parentOf(e),
+                        )
+                    }
                 }
             }
+            item { Spacer(Modifier.height(8.dp)) }
         }
-
-        if (upcoming.isNotEmpty()) item {
-            SectionCard(padding = 4, spacing = 0) {
-                SectionHeader(stringResource(R.string.coming_up), Text2)
-                upcoming.forEachIndexed { i, (e, d) ->
-                    if (i > 0) RowDivider()
-                    val current = d == e.shownDate()
-                    val t = if (current) e.shownTime() else e.time
-                    EventLine(
-                        title = e.title,
-                        meta = Fmt.day(d, today, en),
-                        topic = topics.nameOf(e.topic),
-                        tail = Fmt.metaTail(e, en),
-                        time = Fmt.timeOrAllDay(t, en),
-                        done = e.id in archiving && current,
-                        strike = false,
-                        ringColor = Muted,
-                        timeColor = Color(0xFFC9CDD6),
-                        checkLabel = stringResource(R.string.mark_done) + " " + e.title,
-                        // A later date of a repeating task can't be ticked before its current one.
-                        onCheck = { if (current) menuFor = e },
-                        checkEnabled = current,
-                        onClick = { onOpen(e.id) },
-                        selected = e.id == selectedId,
-                        important = e.important,
-                        parent = titles.parentOf(e),
-                    )
-                }
-            }
-        }
-
-        // 已完成 (all archived), folded by default.
-        if (archived.isNotEmpty()) item {
-            SectionCard(padding = 4, spacing = 0) {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showDone = !showDone }
-                        .heightIn(min = 52.dp).padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        stringResource(R.string.completed_n, archived.size),
-                        fontSize = HEADER_SP.sp, fontWeight = FontWeight.Bold, color = Text2, modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        if (showDone) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = stringResource(if (showDone) R.string.collapse else R.string.expand),
-                        tint = Text2,
-                    )
-                }
-                if (showDone) archived.forEach { e ->
-                    RowDivider()
-                    EventLine(
-                        title = e.title,
-                        meta = Fmt.day(e.shownDate(), today, en),
-                        topic = topics.nameOf(e.topic),
-                        tail = Fmt.metaTail(e, en),
-                        time = e.lastDoneOn?.let { stringResource(R.string.done_on, Fmt.day(it, today, en)) } ?: "",
-                        done = true,
-                        strike = false,
-                        ringColor = Muted,
-                        timeColor = Muted,
-                        checkLabel = stringResource(R.string.restore) + " " + e.title,
-                        onCheck = { Repo.restore(ctx, e.id) },
-                        onClick = { onOpen(e.id) },
-                        selected = e.id == selectedId,
-                        important = e.important,
-                        parent = titles.parentOf(e),
-                    )
-                }
-            }
-        }
-        item { Spacer(Modifier.height(8.dp)) }
+        NestDragGhost(drag)
     }
 
     menuFor?.let { e ->

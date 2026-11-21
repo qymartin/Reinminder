@@ -88,6 +88,8 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
     val monthStart = ym.atDay(1)
     val monthEnd = ym.atEndOfMonth()
 
+    val drag = rememberNestDrag()
+    Box(Modifier.fillMaxSize().nestDragArea(drag)) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 96.dp),
@@ -147,7 +149,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                     if (list.isNotEmpty()) Text(if (en) "${list.size}" else "${list.size} 项", fontSize = 12.sp, color = Text3)
                 }
             }
-            item { OccList(list, en, today, onOpen, emptyText = stringResource(R.string.nothing_on_day)) }
+            item { OccList(list, en, today, onOpen, emptyText = stringResource(R.string.nothing_on_day), drag = drag) }
         } else if (mode == 2) {
             // 已完成: everything archived, latest first. Tap the tick to restore.
             val done = events.filter { it.done && !it.purge }
@@ -169,9 +171,8 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                         val doneOn = e.lastDoneOn
                         EventLine(
                             title = e.title,
-                            meta = Fmt.day(e.shownDate(), today, en),
+                            meta = "",
                             topic = topics.nameOf(e.topic),
-                            tail = Fmt.metaTail(e, en),
                             time = if (doneOn != null) stringResource(R.string.done_on, Fmt.monthDay(doneOn, en)) else "",
                             done = true,
                             strike = false,
@@ -205,7 +206,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
             }
             if (overdue.isNotEmpty()) {
                 item { DayHeader(stringResource(R.string.overdue), Amber) }
-                item { OccList(overdue.map { Occ(it, it.shownDate()) }, en, today, onOpen, emptyText = "") }
+                item { OccList(overdue.map { Occ(it, it.shownDate()) }, en, today, onOpen, emptyText = "", drag = drag) }
             }
             val groups = occ.groupBy { it.date }.toSortedMap(compareBy<LocalDate> { it.toEpochDay() })
             if (groups.isEmpty()) item {
@@ -213,9 +214,11 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
             }
             groups.forEach { (d, items) ->
                 item { DayHeader(Fmt.day(d, today, en), Text1) }
-                item { OccList(items, en, today, onOpen, emptyText = "") }
+                item { OccList(items, en, today, onOpen, emptyText = "", drag = drag) }
             }
         }
+    }
+    NestDragGhost(drag)
     }
 }
 
@@ -299,23 +302,29 @@ private fun DayHeader(text: String, color: Color) {
 }
 
 @Composable
-private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Long) -> Unit, emptyText: String) {
+private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Long) -> Unit, emptyText: String, drag: NestDragState) {
+    val titles = LocalTitles.current
+    val topics = LocalTopics.current
     SectionCard(padding = 4, spacing = 0) {
         if (list.isEmpty() && emptyText.isNotEmpty()) {
             Text(emptyText, fontSize = 14.sp, color = Text3, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp))
         }
         list.forEachIndexed { i, o ->
             if (i > 0) RowDivider()
+            // One line: title · topic · time. The day is the group header above.
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(o.event.id) }
-                    .heightIn(min = 58.dp).padding(horizontal = 12.dp),
+                Modifier.nestDrag(drag, "s${o.event.id}/${o.date}", o.event)
+                    .fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(o.event.id) }
+                    .heightIn(min = 52.dp).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.width(4.dp).height(30.dp).clip(RoundedCornerShape(2.dp)).background(barColor(o, today)))
+                Box(Modifier.width(4.dp).height(24.dp).clip(RoundedCornerShape(2.dp)).background(barColor(o, today)))
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    TitleText(o.event.title, o.event.important, fontSize = 15, parent = LocalTitles.current.parentOf(o.event))
-                    MetaLine(null, LocalTopics.current.nameOf(o.event.topic), Fmt.metaTail(o.event, en))
+                Box(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    TitleText(
+                        o.event.title, o.event.important, fontSize = 15,
+                        parent = titles.parentOf(o.event), topic = topics.nameOf(o.event.topic),
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(Fmt.timeOrAllDay(timeOf(o), en), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFFC9CDD6))

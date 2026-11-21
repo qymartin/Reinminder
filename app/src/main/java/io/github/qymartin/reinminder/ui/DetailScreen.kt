@@ -85,10 +85,13 @@ fun DetailScreen(
             Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(e.title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Text1)
                 if (parent != null) {
-                    Text(
-                        stringResource(R.string.main_task_is, parent.title), fontSize = 14.sp, color = Accent,
-                        modifier = Modifier.clickable { onOpen(parent.id) },
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.main_task_is, parent.title), fontSize = 14.sp, color = Accent,
+                            modifier = Modifier.weight(1f, fill = false).clickable { onOpen(parent.id) },
+                        )
+                        TextButton(onClick = { Repo.detach(ctx, e.id) }) { Text(stringResource(R.string.detach), fontSize = 13.sp) }
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LocalTopics.current.nameOf(e.topic)?.let { Box(Modifier.align(Alignment.CenterVertically)) { TopicBadge(it, fontSize = 13) } }

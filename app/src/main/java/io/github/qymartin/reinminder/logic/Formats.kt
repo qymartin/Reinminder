@@ -154,14 +154,9 @@ object Fmt {
         else "${ym.year}年${ym.monthValue}月"
 
     /**
-     * The part of a row's subtitle after the topic: repeat, or "已推迟". Reminders are not shown.
-     * Lists show: date · [topic] · this.
+     * The part of a row's subtitle after the topic: only "已推迟". Repeat and reminders are not shown
+     * in lists; they are on the task's page.
      */
-    fun metaTail(e: Event, en: Boolean): String? {
-        val parts = buildList {
-            repeatShort(e.repeat, en, e.interval)?.let { add(it) }
-            if (e.postponedTo != null) add(if (en) "Postponed" else "已推迟")
-        }
-        return parts.joinToString(" · ").ifEmpty { null }
-    }
+    fun metaTail(e: Event, en: Boolean): String? =
+        if (e.postponedTo != null) (if (en) "Postponed" else "已推迟") else null
 }

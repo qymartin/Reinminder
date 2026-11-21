@@ -122,4 +122,8 @@
     <string name="all_topics">全部主题</string>
     <string name="complete_subtasks_title">同时完成子任务？</string>
     <string name="complete_subtasks_text">这个任务还有 %1$d 个未完成的子任务，会一起完成：</string>
+    <string name="cannot_nest_subtask">子任务下面不能再放子任务</string>
+    <string name="cannot_nest_parent">这个任务有自己的子任务，不能再变成子任务</string>
+    <string name="nested_into">已设为「%1$s」的子任务</string>
+    <string name="detach">移出</string>
 </resources>

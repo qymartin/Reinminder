@@ -146,11 +146,14 @@ fun EventLine(
     parent: String? = null,
     checkEnabled: Boolean = true,
     topic: String? = null,
-    /** Text after the topic: repeat, "已推迟". */
+    /** Text after the topic: "已推迟". */
     tail: String? = null,
+    modifier: Modifier = Modifier,
 ) {
+    // With nothing but a topic to show, everything fits on one line: title, topic, time.
+    val oneLine = meta.isEmpty() && tail == null
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) TonalBg else Color.Transparent)
@@ -161,8 +164,8 @@ fun EventLine(
     ) {
         if (onCheck != null) CheckCircle(done, if (checkEnabled) ringColor else DividerColor, checkLabel, onCheck, enabled = checkEnabled)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            TitleText(title, important, muted = done, strike = strike, fontSize = 15, parent = parent)
-            MetaLine(meta, topic, tail, muted = done)
+            TitleText(title, important, muted = done, strike = strike, fontSize = 15, parent = parent, topic = if (oneLine) topic else null)
+            if (!oneLine) MetaLine(meta, topic, tail, muted = done)
         }
         Spacer(Modifier.width(8.dp))
         Text(time, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (done) Muted else timeColor)
@@ -171,7 +174,15 @@ fun EventLine(
 
 /** Event title; important events get an amber star in front. */
 @Composable
-fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 15, parent: String? = null) {
+fun TitleText(
+    title: String,
+    important: Boolean,
+    muted: Boolean = false,
+    strike: Boolean = false,
+    fontSize: Int = 15,
+    parent: String? = null,
+    topic: String? = null,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (important) {
             Icon(
@@ -195,6 +206,10 @@ fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike:
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 140.dp),
             )
+        }
+        if (topic != null) {
+            Spacer(Modifier.width(8.dp))
+            TopicBadge(topic, muted, fontSize - 3)
         }
     }
 }

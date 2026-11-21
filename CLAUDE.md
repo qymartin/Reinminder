@@ -18,6 +18,9 @@ Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminde
   one-off copy is added and the series advances. Reminders default to "at time" (offset 0).
   Alarm-style = after the event time, a normal reminder every 10 minutes until done or moved (`nextNag`).
 - Subtasks (1.3): `Event.parentId`, one level only. Deleting a task deletes its subtasks (`Repo.delete`).
+  1.4: long-press a row and drop it on another to nest it (`ui/NestDrag.kt`, `Repo.makeSubtask`).
+- List rows show title · [topic badge] · time, plus the date where the section doesn't give it. No repeat or
+  reminder text in lists; those are on the task's page.
 
 ## Layout
 - `data/` model, JSON codec, file stores (`events.json`, `topics.json` in private storage), prefs, language.
