@@ -164,7 +164,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         if (i > 0 || pending.isNotEmpty()) RowDivider()
                         EventLine(
                             title = e.title,
-                            meta = stringResource(R.string.deleted_at_midnight),
+                            meta = "",
                             time = Fmt.timeOrAllDay(e.lastDoneTime ?: e.shownTime(), en),
                             done = true,
                             strike = true,

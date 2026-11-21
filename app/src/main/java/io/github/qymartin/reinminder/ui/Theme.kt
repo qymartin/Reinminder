@@ -75,3 +75,6 @@ fun Map<String, String>.nameOf(id: String?): String? = id?.let { this[it] }
 val LocalTitles = compositionLocalOf { emptyMap<Long, String>() }
 
 fun Map<Long, String>.parentOf(e: io.github.qymartin.reinminder.data.Event): String? = e.parentId?.let { this[it] }
+
+/** Main-task name next to a subtask: purple, so it isn't mistaken for a (light-blue) topic. */
+val ParentColor = Purple

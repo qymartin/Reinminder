@@ -128,6 +128,10 @@ class EventLogicTest {
         assertTrue(e.pinnedAt(LocalDateTime.of(2026, 11, 25, 9, 0)))
         assertFalse(e.copy(important = false).pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))
         assertFalse(e.archived(LocalDate.of(2026, 11, 21)).pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))
+        // Reminded 1 hour before: pinned from then.
+        val early = e.copy(reminders = listOf(60))
+        assertFalse(early.pinnedAt(LocalDateTime.of(2026, 11, 21, 11, 59)))
+        assertTrue(early.pinnedAt(LocalDateTime.of(2026, 11, 21, 12, 0)))
         // Postponed to tomorrow: unpinned until then.
         val moved = e.copy(postponedTo = LocalDateTime.of(2026, 11, 22, 13, 0))
         assertFalse(moved.pinnedAt(LocalDateTime.of(2026, 11, 21, 14, 0)))

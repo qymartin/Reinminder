@@ -30,8 +30,6 @@
     <string name="time_of_day">时刻</string>
     <string name="repeat">重复</string>
     <string name="postponed_from">已从 %1$s 推迟</string>
-    <string name="reminders">提醒</string>
-    <string name="no_reminders">没有设置提醒</string>
     <string name="alarm_style">闹钟式提醒</string>
     <string name="alarm_style_note">到时间后每 10 分钟提醒一次，直到完成或改时间</string>
     <string name="notes">备注</string>
@@ -98,7 +96,6 @@
     <string name="done_archive_note">保留在“已完成”里，可以随时恢复</string>
     <string name="done_delete">完成并删除</string>
     <string name="done_delete_note">今天划线显示，半夜自动删除</string>
-    <string name="deleted_at_midnight">半夜删除</string>
     <string name="completed_n">已完成 · %1$d</string>
     <string name="collapse">收起</string>
     <string name="expand">展开</string>
@@ -126,4 +123,7 @@
     <string name="cannot_nest_parent">这个任务有自己的子任务，不能再变成子任务</string>
     <string name="nested_into">已设为「%1$s」的子任务</string>
     <string name="detach">移出</string>
+    <string name="every_10_min">到时间后每 10 分钟</string>
+    <string name="detach_named">把「%1$s」移出</string>
+    <string name="detach_text">它会变回独立的任务，不会被删除。</string>
 </resources>

@@ -29,8 +29,6 @@
     <string name="time_of_day">Time</string>
     <string name="repeat">Repeat</string>
     <string name="postponed_from">Postponed from %1$s</string>
-    <string name="reminders">Reminders</string>
-    <string name="no_reminders">No reminders</string>
     <string name="alarm_style">Alarm-style reminder</string>
     <string name="alarm_style_note">After the event time, reminds you every 10 minutes until it is done or moved</string>
     <string name="notes">Notes</string>
@@ -97,7 +95,6 @@
     <string name="done_archive_note">Kept under Completed; you can restore it</string>
     <string name="done_delete">Done and delete</string>
     <string name="done_delete_note">Struck through today, deleted at midnight</string>
-    <string name="deleted_at_midnight">Deleted at midnight</string>
     <string name="completed_n">Completed · %1$d</string>
     <string name="collapse">Collapse</string>
     <string name="expand">Expand</string>
@@ -125,4 +122,7 @@
     <string name="cannot_nest_parent">This task has its own subtasks, so it can\'t become a subtask</string>
     <string name="nested_into">Now a subtask of “%1$s”</string>
     <string name="detach">Remove from main task</string>
+    <string name="every_10_min">Every 10 min after the time</string>
+    <string name="detach_named">Remove “%1$s”</string>
+    <string name="detach_text">It becomes a task of its own; nothing is deleted.</string>
 </resources>

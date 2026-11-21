@@ -8,7 +8,7 @@ import android.net.Uri
 import android.os.Build
 import io.github.qymartin.reinminder.data.EventStore
 import io.github.qymartin.reinminder.data.Prefs
-import io.github.qymartin.reinminder.logic.moment
+import io.github.qymartin.reinminder.logic.firstReminder
 import io.github.qymartin.reinminder.logic.nextNag
 import io.github.qymartin.reinminder.logic.reminderMoments
 import java.time.LocalDate
@@ -74,8 +74,8 @@ object Alarms {
                     keys += key
                 }
             }
-            // Important: pin it to the lock screen when its time comes, even if its only reminder was earlier.
-            val at = e.moment()
+            // Important: pin it from its first reminder (normally a reminder alarm already fires then).
+            val at = e.firstReminder()
             if (e.important && at.isAfter(now) && at !in moments && at != nag) {
                 val key = "${e.id}/pin"
                 pending(ctx, key, e.id, PendingIntent.FLAG_UPDATE_CURRENT, pinOnly = true)?.let {

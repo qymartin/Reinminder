@@ -93,7 +93,8 @@ fun Modifier.nestDrag(state: NestDragState, key: String, e: Event, enabled: Bool
                     state.findTarget()
                 },
                 onDragEnd = {
-                    val child = state.dragging
+                    // Read the task again: the row may have been drawn before it last changed.
+                    val child = state.dragging?.let { EventStore.get(ctx).get(it.id) }
                     val parentId = state.targetId()
                     state.dragging = null
                     state.targetKey = null

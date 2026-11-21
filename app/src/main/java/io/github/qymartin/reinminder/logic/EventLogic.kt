@@ -107,11 +107,18 @@ fun Event.nextNag(now: LocalDateTime): LocalDateTime? {
 
 const val NAG_MINUTES = 10L
 
+/** When this occurrence first reminds: its earliest reminder, or the event time when moved ("postponed"). */
+fun Event.firstReminder(): LocalDateTime {
+    postponedTo?.let { return it }
+    val lead = (reminders.maxOrNull() ?: 0).coerceAtLeast(0)
+    return date.atTime(time ?: ALL_DAY_REF).minusMinutes(lead.toLong())
+}
+
 /**
- * Important and its time has come (overdue or happening now), not yet done: kept as a pinned
- * notification that "clear all" can't remove, until it is completed or moved later.
+ * Important, not yet done, and its first reminder has come: kept as a pinned notification that
+ * "clear all" can't remove, until it is completed or moved later.
  */
-fun Event.pinnedAt(now: LocalDateTime): Boolean = important && !done && !moment().isAfter(now)
+fun Event.pinnedAt(now: LocalDateTime): Boolean = important && !done && !firstReminder().isAfter(now)
 
 fun Event.postponed(to: LocalDateTime): Event = copy(postponedTo = to, done = false)
 

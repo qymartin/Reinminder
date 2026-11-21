@@ -202,7 +202,7 @@ fun TitleText(
         if (parent != null) {
             Spacer(Modifier.width(6.dp))
             Text(
-                parent, fontSize = (fontSize - 3).sp, color = if (muted) Muted else Accent,
+                "↳ $parent", fontSize = (fontSize - 3).sp, color = if (muted) Muted else ParentColor,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 140.dp),
             )

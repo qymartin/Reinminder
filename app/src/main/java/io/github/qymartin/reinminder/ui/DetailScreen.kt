@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -63,6 +66,7 @@ fun DetailScreen(
     val today = now.toLocalDate()
     var confirmDelete by remember { mutableStateOf(false) }
     var showComplete by remember { mutableStateOf(false) }
+    var detaching by remember { mutableStateOf<Event?>(null) }
     val doneNow = e.done
     val parent = e.parentId?.let { pid -> events.firstOrNull { it.id == pid } }
     val subtasks = events.filter { it.parentId == e.id }.sortedWith(compareBy<Event>({ it.done }).then(eventOrder))
@@ -85,24 +89,23 @@ fun DetailScreen(
             Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(e.title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Text1)
                 if (parent != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stringResource(R.string.main_task_is, parent.title), fontSize = 14.sp, color = Accent,
-                            modifier = Modifier.weight(1f, fill = false).clickable { onOpen(parent.id) },
-                        )
-                        TextButton(onClick = { Repo.detach(ctx, e.id) }) { Text(stringResource(R.string.detach), fontSize = 13.sp) }
-                    }
+                    // Tap to go to the main task. Removing a subtask is done from the main task's page.
+                    Text(
+                        stringResource(R.string.main_task_is, parent.title) + "  ›", fontSize = 14.sp, color = ParentColor,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onOpen(parent.id) }.padding(vertical = 6.dp),
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LocalTopics.current.nameOf(e.topic)?.let { Box(Modifier.align(Alignment.CenterVertically)) { TopicBadge(it, fontSize = 13) } }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
-                    if (doneNow) Chip(stringResource(if (e.purge) R.string.deleted_at_midnight else R.string.done_label))
+                    if (doneNow) Chip(stringResource(R.string.done_label))
                     if (e.isOverdue(now)) Chip(stringResource(R.string.overdue), color = Amber, background = AmberBg, border = AmberBorder)
                 }
             }
 
+            // One card: when it is, how it repeats, when it reminds.
             SectionCard {
-                LabelTitle(stringResource(R.string.time))
+                LabelTitle(stringResource(R.string.reminder))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(Fmt.date(e.shownDate(), en, today), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = Text1, modifier = Modifier.weight(1f))
                     Text(Fmt.timeOrAllDay(e.shownTime(), en), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = Text1)
@@ -113,30 +116,21 @@ fun DetailScreen(
                         fontSize = 12.sp, color = Text3,
                     )
                 }
-                KeyValueRow(stringResource(R.string.repeat), Fmt.repeat(e.repeat, e.anchor, en, e.interval), valueColor = Accent)
-            }
-
-            SectionCard(spacing = 4) {
-                LabelTitle(stringResource(R.string.reminders))
-                val allDay = e.time == null
-                if (e.postponedTo != null) {
-                    ReminderLine(Fmt.reminder(0, false, en), Fmt.date(e.postponedTo.toLocalDate(), en, today) + " " + Fmt.time(e.postponedTo.toLocalTime(), en))
-                } else if (e.reminders.isEmpty()) {
-                    Text(stringResource(R.string.no_reminders), fontSize = 14.sp, color = Text3, modifier = Modifier.padding(vertical = 6.dp))
-                } else {
-                    val ref = e.date.atTime(e.time ?: ALL_DAY_REF)
-                    e.reminders.sortedDescending().forEachIndexed { i, m ->
-                        if (i > 0) RowDivider()
-                        val at = ref.minusMinutes(m.toLong())
-                        ReminderLine(Fmt.reminder(m, allDay, en), Fmt.date(at.toLocalDate(), en, today) + " " + Fmt.time(at.toLocalTime(), en))
-                    }
+                if (e.repeat != Repeat.NONE) {
+                    KeyValueRow(stringResource(R.string.repeat), Fmt.repeat(e.repeat, e.anchor, en, e.interval), valueColor = Text2)
+                }
+                // Only an earlier reminder needs its own line; "at time" is the date and time above.
+                val lead = e.reminders.maxOrNull() ?: 0
+                if (e.postponedTo == null && lead > 0) {
+                    val at = e.date.atTime(e.time ?: ALL_DAY_REF).minusMinutes(lead.toLong())
+                    KeyValueRow(
+                        Fmt.reminder(lead, false, en),
+                        Fmt.day(at.toLocalDate(), today, en) + " " + Fmt.time(at.toLocalTime(), en),
+                        valueColor = Text2,
+                    )
                 }
                 if (e.alarmStyle) {
-                    Spacer(Modifier.height(6.dp))
-                    RowDivider()
-                    Spacer(Modifier.height(6.dp))
-                    Text(stringResource(R.string.alarm_style), fontSize = 15.sp, color = Text1)
-                    Text(stringResource(R.string.alarm_style_note), fontSize = 12.sp, color = Text3)
+                    KeyValueRow(stringResource(R.string.alarm_style), stringResource(R.string.every_10_min), valueColor = Text2)
                 }
             }
 
@@ -156,6 +150,9 @@ fun DetailScreen(
                                 MetaLine(Fmt.day(sub.shownDate(), today, en), topics.nameOf(sub.topic), Fmt.metaTail(sub, en), muted = sub.done, fontSize = 12)
                             }
                             Text(Fmt.timeOrAllDay(sub.shownTime(), en), fontSize = 14.sp, color = if (sub.done) Muted else Text2)
+                            IconButton(onClick = { detaching = sub }) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.detach_named, sub.title), tint = Text3, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                     OutlinedButton(onClick = onAddSubtask, modifier = Modifier.padding(top = 8.dp)) {
@@ -193,6 +190,16 @@ fun DetailScreen(
         }
     }
 
+    detaching?.let { sub ->
+        ConfirmDialog(
+            title = stringResource(R.string.detach_named, sub.title),
+            text = stringResource(R.string.detach_text),
+            confirm = stringResource(R.string.detach),
+            onDismiss = { detaching = null },
+            onConfirm = { Repo.detach(ctx, sub.id); detaching = null },
+        )
+    }
+
     if (showComplete) {
         CompleteFlow(e, onClose = { showComplete = false })
     }
@@ -206,17 +213,5 @@ fun DetailScreen(
             onDismiss = { confirmDelete = false },
             onConfirm = { confirmDelete = false; Repo.delete(ctx, e.id); onBack() },
         )
-    }
-}
-
-@Composable
-private fun ReminderLine(label: String, at: String) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(painterResource(R.drawable.ic_bell), contentDescription = null, tint = Text2, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, fontSize = 15.sp, color = Text1)
-            Text(at, fontSize = 12.sp, color = Text3)
-        }
     }
 }
