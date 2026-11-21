@@ -59,6 +59,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
     val now = LocalNow.current
     val today = now.toLocalDate()
     val topics = LocalTopics.current
+    val titles = LocalTitles.current
 
     // Tick menu, and tasks just archived: they show ticked for a moment, then move to 已完成.
     var menuFor by remember { mutableStateOf<Event?>(null) }
@@ -123,6 +124,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         onClick = { onOpen(e.id) },
                         selected = e.id == selectedId,
                         important = e.important,
+                        parent = titles.parentOf(e),
                     )
                 }
             }
@@ -153,6 +155,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         onClick = { onOpen(e.id) },
                         selected = e.id == selectedId,
                         important = e.important,
+                        parent = titles.parentOf(e),
                     )
                 }
                 struck.forEachIndexed { i, e ->
@@ -170,6 +173,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         onClick = { onOpen(e.id) },
                         selected = e.id == selectedId,
                         important = e.important,
+                        parent = titles.parentOf(e),
                     )
                 }
             }
@@ -197,7 +201,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                TitleText(e.title, e.important, fontSize = 15)
+                                TitleText(e.title, e.important, fontSize = 15, parent = titles.parentOf(e))
                                 val t = if (d == e.shownDate()) e.shownTime() else e.time
                                 Text(Fmt.meta(e, en, t?.let { Fmt.time(it, en) }, topics.nameOf(e.topic)), fontSize = 13.sp, color = Text3)
                             }
@@ -240,6 +244,7 @@ fun TodayScreen(events: List<Event>, onOpen: (Long) -> Unit, selectedId: Long, m
                         onClick = { onOpen(e.id) },
                         selected = e.id == selectedId,
                         important = e.important,
+                        parent = titles.parentOf(e),
                     )
                 }
             }

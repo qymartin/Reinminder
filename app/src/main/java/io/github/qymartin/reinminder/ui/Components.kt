@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -139,6 +140,7 @@ fun EventLine(
     selected: Boolean = false,
     important: Boolean = false,
     strike: Boolean = done,
+    parent: String? = null,
 ) {
     Row(
         Modifier
@@ -152,7 +154,7 @@ fun EventLine(
     ) {
         if (onCheck != null) CheckCircle(done, ringColor, checkLabel, onCheck)
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            TitleText(title, important, muted = done, strike = strike)
+            TitleText(title, important, muted = done, strike = strike, parent = parent)
             if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
@@ -162,7 +164,7 @@ fun EventLine(
 
 /** Event title; important events get an amber star in front. */
 @Composable
-fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 16) {
+fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike: Boolean = false, fontSize: Int = 16, parent: String? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (important) {
             Icon(
@@ -176,6 +178,16 @@ fun TitleText(title: String, important: Boolean, muted: Boolean = false, strike:
             color = if (muted) Muted else Text1,
             textDecoration = if (strike) TextDecoration.LineThrough else TextDecoration.None,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        // A subtask names its main task after its own title, in the accent colour.
+        if (parent != null) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                parent, fontSize = (fontSize - 3).sp, color = if (muted) Muted else Accent,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 140.dp),
+            )
+        }
     }
 }

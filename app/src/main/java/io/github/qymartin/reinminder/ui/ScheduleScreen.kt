@@ -30,6 +30,17 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import io.github.qymartin.reinminder.data.TopicStore
+import io.github.qymartin.reinminder.data.Topic
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -69,6 +80,9 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
     var mode by rememberSaveable { mutableIntStateOf(1) } // 0 = list, 1 = month
     var monthIndex by rememberSaveable { mutableIntStateOf(0) } // months from the current one
     var selectedDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
+    var onlyImportant by rememberSaveable { mutableStateOf(false) }
+    var topicFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    val topics by remember { TopicStore.get(ctx) }.topics.collectAsState()
 
     val ym = YearMonth.from(today).plusMonths(monthIndex.toLong())
     val monthStart = ym.atDay(1)
@@ -115,6 +129,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                                         items.any { it.event.isOverdue(now) && it.date == it.event.shownDate() } -> Amber
                                         else -> Color(0xFF7AB8FF)
                                     },
+                                    star = items.any { it.event.important },
                                     onClick = { if (inMonth) selectedDay = d.toEpochDay() },
                                     modifier = Modifier.weight(1f),
                                 )
@@ -148,6 +163,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                         Text(stringResource(R.string.nothing_completed), fontSize = 14.sp, color = Text3, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp))
                     }
                     val topics = LocalTopics.current
+                    val titles = LocalTitles.current
                     done.forEachIndexed { i, e ->
                         if (i > 0) RowDivider()
                         val doneOn = e.lastDoneOn
@@ -163,19 +179,28 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
                             onCheck = { Repo.restore(ctx, e.id) },
                             onClick = { onOpen(e.id) },
                             important = e.important,
+                        parent = titles.parentOf(e),
                         )
                     }
                 }
             }
         } else {
             val end = today.plusDays(60)
-            val occ = occurrencesIn(events, today, end)
-            val overdue = events.filter { it.isOverdue(now) }
+            // Filters: only important, and/or one topic.
+            val shown = events.filter { (!onlyImportant || it.important) && (topicFilter == null || it.topic == topicFilter) }
+            val occ = occurrencesIn(shown, today, end)
+            val overdue = shown.filter { it.isOverdue(now) }
             item {
                 val sub = if (en) "Next 60 days · ${occ.size}" else "未来 60 天 · ${occ.size} 项"
                 ScreenTitle(stringResource(R.string.tab_schedule), sub)
             }
             item { Toolbar(mode, { mode = it }) {} }
+            item {
+                ListFilters(
+                    onlyImportant, { onlyImportant = it },
+                    topics, topicFilter, { topicFilter = it },
+                )
+            }
             if (overdue.isNotEmpty()) {
                 item { DayHeader(stringResource(R.string.overdue), Amber) }
                 item { OccList(overdue.map { Occ(it, it.shownDate()) }, en, today, onOpen, emptyText = "") }
@@ -194,7 +219,7 @@ fun ScheduleScreen(events: List<Event>, onOpen: (Long) -> Unit) {
 
 private fun occurrencesIn(events: List<Event>, from: LocalDate, to: LocalDate): List<Occ> =
     events.flatMap { e -> e.occurrences(from, to).map { Occ(e, it) } }
-        .sortedWith(compareBy<Occ>({ it.date.toEpochDay() }, { timeOf(it) != null }, { timeOf(it) }, { it.event.id }))
+        .sortedWith(compareBy<Occ>({ it.date.toEpochDay() }, { !it.event.important }, { timeOf(it) != null }, { timeOf(it) }, { it.event.id }))
 
 private fun timeOf(o: Occ) = if (o.date == o.event.shownDate()) o.event.shownTime() else o.event.time
 
@@ -235,7 +260,7 @@ private fun MonthNav(ym: YearMonth, en: Boolean, onPrev: () -> Unit, onNext: () 
 
 @Composable
 private fun DayCell(
-    d: LocalDate, inMonth: Boolean, isToday: Boolean, isSelected: Boolean, dot: Color,
+    d: LocalDate, inMonth: Boolean, isToday: Boolean, isSelected: Boolean, dot: Color, star: Boolean,
     onClick: () -> Unit, modifier: Modifier,
 ) {
     Column(
@@ -256,8 +281,13 @@ private fun DayCell(
                 },
             )
         }
-        Spacer(Modifier.height(3.dp))
-        Box(Modifier.size(5.dp).clip(CircleShape).background(dot))
+        Spacer(Modifier.height(if (star) 1.dp else 3.dp))
+        // A day with an important task gets the amber star instead of a dot.
+        if (star) {
+            Icon(Icons.Filled.Star, contentDescription = null, tint = Amber, modifier = Modifier.size(10.dp))
+        } else {
+            Box(Modifier.size(5.dp).clip(CircleShape).background(dot))
+        }
     }
 }
 
@@ -282,7 +312,7 @@ private fun OccList(list: List<Occ>, en: Boolean, today: LocalDate, onOpen: (Lon
                 Box(Modifier.width(4.dp).height(30.dp).clip(RoundedCornerShape(2.dp)).background(barColor(o, today)))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    TitleText(o.event.title, o.event.important, fontSize = 15)
+                    TitleText(o.event.title, o.event.important, fontSize = 15, parent = LocalTitles.current.parentOf(o.event))
                     val meta = Fmt.meta(o.event, en, topic = LocalTopics.current.nameOf(o.event.topic))
                     if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = Text3)
                 }
@@ -297,4 +327,47 @@ private fun barColor(o: Occ, today: LocalDate): Color = when {
     o.date.isBefore(today) -> Amber
     o.event.repeat == Repeat.YEARLY -> Purple
     else -> Accent
+}
+
+@Composable
+private fun ListFilters(
+    onlyImportant: Boolean,
+    onImportant: (Boolean) -> Unit,
+    topics: List<Topic>,
+    topicFilter: String?,
+    onTopic: (String?) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TonalBg, selectedLabelColor = Text1)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(
+            selected = onlyImportant,
+            onClick = { onImportant(!onlyImportant) },
+            label = { Text(stringResource(R.string.important)) },
+            leadingIcon = { Icon(Icons.Filled.Star, contentDescription = null, tint = Amber, modifier = Modifier.size(16.dp)) },
+            colors = colors,
+        )
+        Box {
+            val name = topics.firstOrNull { it.id == topicFilter }?.name
+            FilterChip(
+                selected = name != null,
+                onClick = { open = true },
+                label = { Text(name ?: stringResource(R.string.topic)) },
+                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                colors = colors,
+            )
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.all_topics)) },
+                    onClick = { onTopic(null); open = false },
+                )
+                topics.forEach { t ->
+                    DropdownMenuItem(
+                        text = { Text(t.name) },
+                        onClick = { onTopic(t.id); open = false },
+                    )
+                }
+            }
+        }
+    }
 }

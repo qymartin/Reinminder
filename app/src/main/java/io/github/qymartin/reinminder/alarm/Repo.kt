@@ -31,9 +31,11 @@ object Repo {
         Alarms.rescheduleAll(c)
     }
 
+    /** Deletes a task and its subtasks. */
     fun delete(c: Context, id: Long) {
-        store(c).delete(id)
-        after(c, id)
+        val children = store(c).all().filter { it.parentId == id }.map { it.id }
+        (children + id).forEach { store(c).delete(it); Alarms.cancelSnooze(c, it); Notifier.cancel(c, it) }
+        Alarms.rescheduleAll(c)
     }
 
     /**

@@ -165,7 +165,13 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel), tint = Text1) }
             Text(
-                stringResource(if (isNew) R.string.new_event else R.string.edit_event),
+                stringResource(
+                    when {
+                        isNew && initial.parentId != null -> R.string.new_subtask
+                        isNew -> R.string.new_event
+                        else -> R.string.edit_event
+                    },
+                ),
                 fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Text1, modifier = Modifier.weight(1f),
             )
         }
@@ -174,6 +180,9 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            LocalTitles.current.parentOf(initial)?.let { parentTitle ->
+                Text(stringResource(R.string.main_task_is, parentTitle), fontSize = 14.sp, color = Accent)
+            }
             // 1. Content
             OutlinedTextField(
                 value = title, onValueChange = { title = it },
@@ -347,7 +356,9 @@ fun EditScreen(initial: Event, isNew: Boolean, onClose: () -> Unit, onDeleted: (
     if (confirmDelete) {
         ConfirmDialog(
             title = stringResource(R.string.delete_title),
-            text = stringResource(R.string.delete_text, initial.title),
+            text = stringResource(R.string.delete_text, initial.title) +
+                (io.github.qymartin.reinminder.data.EventStore.get(ctx).all().count { it.parentId == initial.id }
+                    .takeIf { it > 0 }?.let { "\n" + stringResource(R.string.delete_subtasks_too, it) } ?: ""),
             confirm = stringResource(R.string.delete),
             onDismiss = { confirmDelete = false },
             onConfirm = {

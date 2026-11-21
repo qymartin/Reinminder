@@ -114,4 +114,10 @@
     <string name="view_done">已完成</string>
     <string name="nothing_completed">还没有已完成的事件</string>
     <string name="done_on">%1$s 完成</string>
+    <string name="main_task_is">主任务：%1$s</string>
+    <string name="subtasks">子任务</string>
+    <string name="add_subtask">添加子任务</string>
+    <string name="new_subtask">新建子任务</string>
+    <string name="delete_subtasks_too">它的 %1$d 个子任务也会一起删除。</string>
+    <string name="all_topics">全部主题</string>
 </resources>

@@ -1,6 +1,8 @@
 package io.github.qymartin.reinminder.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import io.github.qymartin.reinminder.logic.eventOrder
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,7 +47,15 @@ import io.github.qymartin.reinminder.logic.shownDate
 import io.github.qymartin.reinminder.logic.shownTime
 
 @Composable
-fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> Unit) {
+fun DetailScreen(
+    e: Event,
+    events: List<Event>,
+    embedded: Boolean,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onOpen: (Long) -> Unit,
+    onAddSubtask: () -> Unit,
+) {
     val ctx = LocalContext.current
     val en = LocalEn.current
     val now = LocalNow.current
@@ -53,6 +63,8 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
     var confirmDelete by remember { mutableStateOf(false) }
     var showComplete by remember { mutableStateOf(false) }
     val doneNow = e.done
+    val parent = e.parentId?.let { pid -> events.firstOrNull { it.id == pid } }
+    val subtasks = events.filter { it.parentId == e.id }.sortedWith(compareBy<Event>({ it.done }).then(eventOrder))
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -71,6 +83,12 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
         ) {
             Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(e.title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Text1)
+                if (parent != null) {
+                    Text(
+                        stringResource(R.string.main_task_is, parent.title), fontSize = 14.sp, color = Accent,
+                        modifier = Modifier.clickable { onOpen(parent.id) },
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LocalTopics.current.nameOf(e.topic)?.let { Chip(it) }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
@@ -118,6 +136,30 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
                 }
             }
 
+            // Subtasks: one level only, so a subtask has no subtasks of its own.
+            if (e.parentId == null) {
+                SectionCard(spacing = 0) {
+                    LabelTitle(stringResource(R.string.subtasks))
+                    val topics = LocalTopics.current
+                    subtasks.forEachIndexed { i, sub ->
+                        if (i > 0) RowDivider()
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onOpen(sub.id) },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                TitleText(sub.title, sub.important, muted = sub.done, strike = sub.done && sub.purge, fontSize = 15)
+                                Text(Fmt.meta(sub, en, Fmt.day(sub.shownDate(), today, en), topics.nameOf(sub.topic)), fontSize = 12.sp, color = Text3)
+                            }
+                            Text(Fmt.timeOrAllDay(sub.shownTime(), en), fontSize = 14.sp, color = if (sub.done) Muted else Text2)
+                        }
+                    }
+                    OutlinedButton(onClick = onAddSubtask, modifier = Modifier.padding(top = 8.dp)) {
+                        Text(stringResource(R.string.add_subtask))
+                    }
+                }
+            }
+
             if (e.notes.isNotBlank()) {
                 SectionCard {
                     LabelTitle(stringResource(R.string.notes))
@@ -161,7 +203,8 @@ fun DetailScreen(e: Event, embedded: Boolean, onBack: () -> Unit, onEdit: () -> 
     if (confirmDelete) {
         ConfirmDialog(
             title = stringResource(R.string.delete_title),
-            text = stringResource(R.string.delete_text, e.title),
+            text = stringResource(R.string.delete_text, e.title) +
+                if (subtasks.isNotEmpty()) "\n" + stringResource(R.string.delete_subtasks_too, subtasks.size) else "",
             confirm = stringResource(R.string.delete),
             onDismiss = { confirmDelete = false },
             onConfirm = { confirmDelete = false; Repo.delete(ctx, e.id); onBack() },

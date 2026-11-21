@@ -70,3 +70,8 @@ val LocalNow = compositionLocalOf { LocalDateTime.now() }
 val LocalTopics = compositionLocalOf { emptyMap<String, String>() }
 
 fun Map<String, String>.nameOf(id: String?): String? = id?.let { this[it] }
+
+/** Task id -> title, so a subtask can show its main task's name. */
+val LocalTitles = compositionLocalOf { emptyMap<Long, String>() }
+
+fun Map<Long, String>.parentOf(e: io.github.qymartin.reinminder.data.Event): String? = e.parentId?.let { this[it] }

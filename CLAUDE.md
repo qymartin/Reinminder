@@ -17,6 +17,7 @@ Design decisions live in the claude.ai Project "Calendar" (doc `claude/Reinminde
   `Alarms.rescheduleAll` and a midnight alarm). Repeating tasks complete one occurrence: an archived
   one-off copy is added and the series advances. Reminders default to "at time" (offset 0).
   Alarm-style = after the event time, a normal reminder every 10 minutes until done or moved (`nextNag`).
+- Subtasks (1.3): `Event.parentId`, one level only. Deleting a task deletes its subtasks (`Repo.delete`).
 
 ## Layout
 - `data/` model, JSON codec, file stores (`events.json`, `topics.json` in private storage), prefs, language.

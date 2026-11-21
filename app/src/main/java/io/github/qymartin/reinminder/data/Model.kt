@@ -23,6 +23,8 @@ data class Topic(val id: String, val name: String)
 data class Event(
     val id: Long,
     val title: String,
+    /** Main task this is a subtask of (one level only), or null. */
+    val parentId: Long? = null,
     /** Id of a [Topic], or null. */
     val topic: String? = null,
     val anchor: LocalDate,

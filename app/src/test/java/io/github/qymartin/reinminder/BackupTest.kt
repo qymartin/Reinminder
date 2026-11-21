@@ -22,7 +22,7 @@ class BackupTest {
             repeat = Repeat.YEARLY, reminders = listOf(1440, 0), important = true, notes = "蛋糕",
             postponedTo = LocalDateTime.of(2026, 11, 5, 18, 30), createdAt = 123,
         ),
-        Event(id = 8, title = "Pick up package", anchor = LocalDate.of(2026, 11, 18), date = LocalDate.of(2026, 11, 18)),
+        Event(id = 8, title = "Pick up package", parentId = 7, anchor = LocalDate.of(2026, 11, 18), date = LocalDate.of(2026, 11, 18)),
     )
 
     private val topics = listOf(Topic("anniversary", "纪念日"), Topic("t1", "猫"))

@@ -12,6 +12,7 @@ object Codec {
         put("id", e.id)
         put("title", e.title)
         e.topic?.let { put("topic", it) }
+        e.parentId?.let { put("parentId", it) }
         put("anchor", e.anchor.toString())
         put("date", e.date.toString())
         e.time?.let { put("time", it.toString()) }
@@ -37,6 +38,7 @@ object Codec {
             title = o.optString("title", ""),
             // 1.0 stored a fixed category key; those keys are the ids of the seeded topics.
             topic = o.optString("topic", "").ifEmpty { o.optString("category", "") }.ifEmpty { null },
+            parentId = if (o.has("parentId")) o.optLong("parentId") else null,
             anchor = o.optString("anchor", "").ifEmpty { null }?.let { LocalDate.parse(it) } ?: date,
             date = date,
             time = o.optString("time", "").ifEmpty { null }?.let { LocalTime.parse(it) },

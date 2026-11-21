@@ -113,4 +113,10 @@
     <string name="view_done">Completed</string>
     <string name="nothing_completed">Nothing completed yet</string>
     <string name="done_on">Done %1$s</string>
+    <string name="main_task_is">Main task: %1$s</string>
+    <string name="subtasks">Subtasks</string>
+    <string name="add_subtask">Add subtask</string>
+    <string name="new_subtask">New subtask</string>
+    <string name="delete_subtasks_too">Its %1$d subtasks will be deleted too.</string>
+    <string name="all_topics">All topics</string>
 </resources>

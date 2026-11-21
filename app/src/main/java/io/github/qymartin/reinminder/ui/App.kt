@@ -62,6 +62,7 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
     val events by store.events.collectAsState()
     val topics by remember { TopicStore.get(ctx) }.topics.collectAsState()
     val topicNames = topics.associate { it.id to it.name }
+    val titles = events.associate { it.id to it.title }
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -102,8 +103,13 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
         editJson = Codec.toJson(e).toString()
         editIsNew = isNew
     }
+    // A new subtask starts at its main task's date and time, with its topic.
+    val addSubtask: (Event) -> Unit = { parent ->
+        val base = newEvent(store.newId(), LocalDateTime.now())
+        startEdit(base.copy(parentId = parent.id, topic = parent.topic, anchor = parent.date, date = parent.date, time = parent.time ?: base.time), true)
+    }
 
-    CompositionLocalProvider(LocalNow provides now, LocalTopics provides topicNames) {
+    CompositionLocalProvider(LocalNow provides now, LocalTopics provides topicNames, LocalTitles provides titles) {
         Box(Modifier.fillMaxSize().background(Bg)) {
             Scaffold(
                 containerColor = Bg,
@@ -153,7 +159,7 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
                                 val selected = events.firstOrNull { it.id == detailId }
                                 Box(Modifier.weight(1f).fillMaxHeight()) {
                                     if (selected != null) {
-                                        DetailScreen(selected, embedded = true, onBack = { detailId = NONE }, onEdit = { startEdit(selected, false) })
+                                        DetailScreen(selected, events, embedded = true, onBack = { detailId = NONE }, onEdit = { startEdit(selected, false) }, onOpen = openDetail, onAddSubtask = { addSubtask(selected) })
                                     } else {
                                         EmptyPane()
                                     }
@@ -173,7 +179,7 @@ fun App(openRequest: Long?, onOpenHandled: () -> Unit) {
             if (detail != null && !twoPane && editJson == null) {
                 BackHandler { detailId = NONE }
                 Box(Modifier.fillMaxSize().background(Bg).safeDrawingPadding()) {
-                    DetailScreen(detail, embedded = false, onBack = { detailId = NONE }, onEdit = { startEdit(detail, false) })
+                    DetailScreen(detail, events, embedded = false, onBack = { detailId = NONE }, onEdit = { startEdit(detail, false) }, onOpen = openDetail, onAddSubtask = { addSubtask(detail) })
                 }
             }
 
