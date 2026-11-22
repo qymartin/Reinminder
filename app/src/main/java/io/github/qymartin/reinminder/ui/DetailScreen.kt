@@ -96,8 +96,8 @@ fun DetailScreen(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LocalTopics.current.nameOf(e.topic)?.let { Box(Modifier.align(Alignment.CenterVertically)) { TopicBadge(it, fontSize = 13) } }
                     if (e.important) Chip(stringResource(R.string.important), color = Amber, background = Bg, border = AmberBorder)
+                    LocalTopics.current.nameOf(e.topic)?.let { Box(Modifier.align(Alignment.CenterVertically)) { TopicBadge(it, fontSize = 13) } }
                     if (doneNow) Chip(stringResource(R.string.done_label))
                     if (e.isOverdue(now)) Chip(stringResource(R.string.overdue), color = Amber, background = AmberBg, border = AmberBorder)
                 }
