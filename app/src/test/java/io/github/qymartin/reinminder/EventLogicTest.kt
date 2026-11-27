@@ -6,7 +6,6 @@ import io.github.qymartin.reinminder.logic.advanced
 import io.github.qymartin.reinminder.logic.archived
 import io.github.qymartin.reinminder.logic.doneAndDeleted
 import io.github.qymartin.reinminder.logic.nextNag
-import io.github.qymartin.reinminder.logic.occurrenceRecord
 import io.github.qymartin.reinminder.logic.pinnedAt
 import io.github.qymartin.reinminder.logic.isOverdue
 import io.github.qymartin.reinminder.logic.nextSeriesDate
@@ -36,12 +35,6 @@ class EventLogicTest {
         val next = e.advanced(day)
         assertEquals(LocalDate.of(2027, 11, 5), next.date)
         assertFalse(next.done)
-        val record = e.occurrenceRecord(99, day)
-        assertEquals(99L, record.id)
-        assertEquals(Repeat.NONE, record.repeat)
-        assertEquals(day, record.date)
-        assertTrue(record.done)
-        assertFalse(record.purge)
     }
 
     @Test fun allDayRemindersCountFromNine() {

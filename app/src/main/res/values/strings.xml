@@ -91,7 +91,7 @@
     <string name="delete_topic_text">这个主题会被删除，用到它的事件会保留，只是不再有主题。</string>
     <string name="no_topics">还没有主题</string>
     <string name="done_once">完成本次</string>
-    <string name="done_once_note">这次记入已完成，下次照常提醒</string>
+    <string name="done_once_note">跳到下一次，下次照常提醒</string>
     <string name="done_archive">完成并存档</string>
     <string name="done_archive_note">保留在“已完成”里，可以随时恢复</string>
     <string name="done_delete">完成并删除</string>

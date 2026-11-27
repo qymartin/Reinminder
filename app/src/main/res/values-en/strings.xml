@@ -90,7 +90,7 @@
     <string name="delete_topic_text">The topic is deleted. Its events stay, without a topic.</string>
     <string name="no_topics">No topics yet</string>
     <string name="done_once">Done this time</string>
-    <string name="done_once_note">This one goes to Completed; the next one stays</string>
+    <string name="done_once_note">Moves on to the next one, reminded as usual</string>
     <string name="done_archive">Done and keep</string>
     <string name="done_archive_note">Kept under Completed; you can restore it</string>
     <string name="done_delete">Done and delete</string>

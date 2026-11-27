@@ -9,7 +9,6 @@ import io.github.qymartin.reinminder.data.Repeat
 import io.github.qymartin.reinminder.logic.advanced
 import io.github.qymartin.reinminder.logic.archived
 import io.github.qymartin.reinminder.logic.doneAndDeleted
-import io.github.qymartin.reinminder.logic.occurrenceRecord
 import io.github.qymartin.reinminder.logic.postponed
 import io.github.qymartin.reinminder.logic.postponedToTomorrow
 import io.github.qymartin.reinminder.logic.restored
@@ -42,8 +41,8 @@ object Repo {
     fun openSubtasks(c: Context, id: Long): List<Event> = store(c).all().filter { it.parentId == id && !it.done }
 
     /**
-     * "完成并存档". A repeating event completes only this occurrence: a completed copy goes to 已完成
-     * and the series moves to its next date. Open subtasks are completed (archived) with it.
+     * "完成并存档". A repeating event completes only this occurrence: the series moves to its next
+     * date and nothing is added to 已完成. Open subtasks are completed (archived) with it.
      */
     fun archive(c: Context, id: Long) {
         openSubtasks(c, id).forEach { archiveOne(c, it.id) }
@@ -57,7 +56,7 @@ object Repo {
         if (e.repeat == Repeat.NONE) {
             store(c).upsert(e.archived(today))
         } else {
-            store(c).upsert(e.occurrenceRecord(store(c).newId(), today))
+            // Repeating: just move on to the next date. Nothing goes to 已完成, so it doesn't pile up.
             store(c).upsert(e.advanced(today))
         }
         Alarms.cancelSnooze(c, id)

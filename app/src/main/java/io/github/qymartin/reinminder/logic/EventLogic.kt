@@ -89,13 +89,6 @@ fun Event.advanced(today: LocalDate): Event {
     return copy(date = nextSeriesDate(from) ?: date, postponedTo = null)
 }
 
-/** The completed occurrence of a repeating event, kept as an archived one-off. */
-fun Event.occurrenceRecord(newId: Long, today: LocalDate): Event = copy(
-    id = newId, repeat = Repeat.NONE, interval = 1,
-    anchor = shownDate(), date = shownDate(), time = shownTime(), postponedTo = null,
-    done = true, purge = false, lastDoneOn = today, lastDoneTime = shownTime(),
-)
-
 /** Alarm-style: the next "again" reminder (event time, then every 10 minutes) after [now]. */
 fun Event.nextNag(now: LocalDateTime): LocalDateTime? {
     if (!alarmStyle || done) return null
